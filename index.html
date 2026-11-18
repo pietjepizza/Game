@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=3.2.0">
+<link rel="stylesheet" href="style.css?v=3.3.0">
 </head>
 <body>
 <canvas id="world" aria-hidden="true"></canvas>
@@ -39,6 +39,14 @@
       <section class="glass howto rv" style="--d:2.3s" aria-labelledby="ht-h">
         <h2 id="ht-h">How it works</h2>
         <p class="rule"><b>First time right.</b> Miss one entry, or post a duplicate, and the close fails. Survive all 90 seconds for a 50% flawless bonus. Entries are worth more as the clock runs.</p>
+
+        <h3>Scoring</h3>
+        <ul class="scoring">
+          <li><b>Streak</b> Post by hand without a pause of more than 1.6 seconds. 10 in a row gives ×1.2, 25 gives ×1.5, 50 gives ×2.</li>
+          <li><b>Clutch save</b> Post an entry just above the close line for +50% on that entry.</li>
+          <li><b>Month-end spikes</b> Twice per close, extra volume hits for 6 seconds, with a 3-second warning. Survive a spike for a bonus.</li>
+          <li><b>Rank</b> Your score earns a rank, from Intern to CFO. Beat your personal best and share your result with colleagues.</li>
+        </ul>
 
         <h3>ESSA boosters</h3>
         <ul class="boosters">
@@ -81,7 +89,7 @@
   <section id="s-play" class="screen">
     <div class="hud glass">
       <div class="hud-act"><b>CLOSE</b><span id="h-clock">1:30</span></div>
-      <div class="hud-score"><span>Score</span><b id="h-score">0</b></div>
+      <div class="hud-score"><span>Score</span><b id="h-score">0</b><small id="h-pb"></small></div>
       <div class="hud-bar"><i id="h-time"></i></div>
       <div class="hud-stats" id="h-stats"></div>
     </div>
@@ -104,8 +112,17 @@
         <b id="e-score">0</b>
         <div class="breakdown" id="e-breakdown"></div>
       </div>
+      <div class="glass rankcard">
+        <div><span>Your rank</span><b id="e-rank"></b><small id="e-rank-next"></small></div>
+        <p class="extra" id="e-extra"></p>
+      </div>
       <div class="ranks" id="e-ranks"></div>
       <p class="status" id="e-status"></p>
+      <div class="end-actions">
+        <button class="btn primary" id="again-top" type="button"><span>Play again</span></button>
+        <button class="btn ghost" id="share" type="button">Share result</button>
+      </div>
+      <p class="status" id="e-share-status" role="status"></p>
 
       <div class="glass tipcard">
         <div class="eyebrow">AI tip for Monday morning</div>
@@ -154,6 +171,6 @@
     f.textContent = 'Something went wrong (' + (e.message || 'script error') + '). Please reload the page with Ctrl+F5 / Cmd+Shift+R, or try another browser.';
   });
 </script>
-<script src="game.js?v=3.2.0"></script>
+<script src="game.js?v=3.3.0"></script>
 </body>
 </html>

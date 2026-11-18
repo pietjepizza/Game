@@ -5,6 +5,9 @@ Browser game for a Finance Operations team (~125 people), handed out before Chri
 ## Message the game must carry
 Volume keeps growing; you cannot scale it with people. ESSA (eliminate, simplify, standardize, automate) is the foundation to fix processes; AI is the extra enabler on top. Goal: people become AI-native and upskilled in using AI in daily work, so the team can handle more volume.
 
+## Status (v3.3)
+Elements from popular games (mechanics only): streak (gap <= 1.6 s; 10/25/50 -> x1.2/1.5/2), clutch (+50% when posted in the last 12% above the line), month-end spikes at 38 s and 68 s (3 s warning, 6 s at 1.8x volume, +200 x time multiplier when survived), personal best per mode in localStorage (`pb-<mode>`, HUD + banner), career rank (Intern 0, Junior Accountant 750, Accountant 2000, Senior Accountant 3500, Controller 5500, Finance Director 8000, CFO 11000), Play again + Share result (Wordle-style text with 10-block timeline; navigator.share on touch, else clipboard). If a duplicate and a real entry overlap under the finger, the real entry is posted. Server cap raised to 800 points per posted entry. Banners sit mid-field.
+
 ## Status (v3.2)
 Seven entry kinds (KIND in game.js, each with points, booster charge, first-appearance time and weight): R journal entry (1 tap), C complex (3), IC intercompany (2), X AI-ready (locked, may pass), U urgent (1 tap, falls 1.6x), P awaiting approval (locked until halfway, then 1 tap), D duplicate (must NOT be posted: tapping it fails the close, letting it pass = +10). Each new kind gets an immediate on-screen explanation. Boosters explained: "How it works" panel on home (boosters + entries), effect label on each button, first-ready message per booster, booster list in pause. Taps hit the topmost card actually touched; duplicates never via the tap margin. Banners draw behind entries. Deadline wins at 90 s. Playfield top follows the HUD height.
 

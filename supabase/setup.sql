@@ -62,8 +62,8 @@ begin
   if v_dur < 3000 or v_dur > 1800000 then
     return json_build_object('ok', false, 'reason', 'bad_duration');
   end if;
-  -- no more than 25 entries per second played, no more than 400 points per entry on average
-  if v_posted > v_dur / 1000 * 25 or p_score > greatest(v_posted, 1) * 400 + 20000 then
+  -- no more than 25 entries per second played; max ~800 points per entry: 30 base x3 time x2 streak x1.5 clutch x1.5 flawless, plus spike bonuses
+  if v_posted > v_dur / 1000 * 25 or p_score > greatest(v_posted, 1) * 800 + 20000 then
     return json_build_object('ok', false, 'reason', 'implausible');
   end if;
   -- one submission per player every 5 seconds (a game always takes longer than that)

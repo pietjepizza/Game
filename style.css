@@ -266,3 +266,22 @@ input::placeholder{color:#6f78a8}
 }
 @media (max-width:420px) and (min-width:381px){.pw span{font-size:8.8px;letter-spacing:-.015em;padding:0 1px}}
 @media (max-width:380px){.pw small{font-size:8.6px;letter-spacing:-.02em;padding:0}}
+
+/* ---------- v3.3: streak, personal best, rank, share ---------- */
+.hud-score small{font:600 10px var(--mono);color:var(--muted);min-height:12px}
+.hud-score small.good{color:var(--green)}
+.hud-stats .hot{color:#ffc23d}
+.scoring{list-style:none;padding:0;display:grid;gap:8px}
+.scoring li{font-size:13px;color:var(--muted);line-height:1.45}
+.scoring b{display:block;font:700 14px var(--display);color:var(--text)}
+.rankcard{padding:14px 18px;border-color:rgba(255,194,61,.45)}
+.rankcard div{display:flex;flex-direction:column;gap:2px}
+.rankcard span{font:600 11px var(--body);letter-spacing:.16em;text-transform:uppercase;color:#ffc23d}
+.rankcard b{font:800 26px/1.1 var(--display)}
+.rankcard small{font-size:13px;color:var(--muted)}
+.extra{font:500 12.5px var(--mono);color:var(--muted)}
+.end-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.end-actions .btn{font-size:17px;padding:14px 12px}
+.rankcard .extra{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+/* the counters row sits below the round buttons, so it may use the full HUD width */
+.hud-stats{margin-right:-98px}

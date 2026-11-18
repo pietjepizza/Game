@@ -6,6 +6,9 @@ A browser game for the Finance Operations team. Volume grows, the team doesn't. 
 
 ## How it works in the game
 
+Mechanics borrowed from popular games (mechanics only, no names or looks): a **streak** multiplier for posting quickly in a row (up to ×2), **clutch saves** (+50% for posting just above the line), two announced **month-end spikes** with a bonus for surviving them, a **personal best** shown during the game, a **career rank** from Intern to CFO, **Play again** right at the top of the end screen, and a Wordle-style **Share result** that copies a spoiler-free summary with a 10-block timeline for Teams.
+
+
 The start screen has a "How it works" panel explaining every booster and entry type; the same booster explanation shows in the pause screen, each booster button shows its effect, and the first time a booster is charged the game says what it does.
 
 ## Leaderboard

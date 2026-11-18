@@ -8,7 +8,7 @@
   const CFG = {
     url: 'https://evdtpvbacpibeasrczhu.supabase.co',
     key: 'sb_publishable_Y1GmwdTaooG8yqFTTTZApQ_WVwIwyZz',
-    version: '3.2.0',
+    version: '3.3.0',
     dur: 90
   };
   const $ = id => document.getElementById(id);
@@ -124,6 +124,10 @@
         case 'lock':   this.tone(300, .1, 'triangle', .05, 0, 240); break;
         case 'unlock': this.tone(1047, .08, 'sine', .06); this.tone(1568, .12, 'sine', .05, t + .05); break;
         case 'reject': this.tone(660, .08, 'triangle', .05); this.tone(990, .1, 'triangle', .04, t + .05); break;
+        case 'clutch': this.tone(1760, .07, 'square', .04); this.tone(2637, .12, 'triangle', .05, t + .04); break;
+        case 'streak': [1047, 1319, 1568].forEach((f, i) => this.tone(f, .14, 'triangle', .05, t + i * .04)); break;
+        case 'spike':  this.noise(2.6, .08, 200, 4000); [220, 220, 220].forEach((f, i) => this.tone(f, .18, 'square', .05, t + i * .5)); break;
+        case 'pb':     [784, 988, 1175, 1568, 1976].forEach((f, i) => this.tone(f, .3, 'triangle', .06, t + i * .07)); break;
         case 'ready':  this.tone(1568, .12, 'sine', .05); this.tone(2093, .18, 'sine', .04, t + .07); break;
         case 'power':  [523, 784, 1047, 1568].forEach((f, i) => this.tone(f, .35, 'triangle', .07, t + i * .05)); this.noise(.5, .05, 800, 5000); break;
         case 'elim':   this.noise(.6, .12, 5000, 300); this.tone(220, .5, 'sine', .12, 0, 80); break;
@@ -381,12 +385,25 @@
     'Stuck on an Excel formula? Describe what you want in plain words and ask AI for the formula and an explanation.'
   ];
 
+  // streak: post by hand within STREAK_GAP seconds of the previous post to keep it going
+  const STREAK_GAP = 1.6, STREAK_STEPS = [[50, 2], [25, 1.5], [10, 1.2]];
+  const streakMult = n => { for (const [k, m] of STREAK_STEPS) if (n >= k) return m; return 1; };
+  // month-end spikes: announced 3 s ahead, then 6 s of 1.8x volume; surviving one pays a bonus
+  const SPIKES = [38, 68], SPIKE_LEN = 6, SPIKE_WARN = 3;
+  const RANKS = [[0, 'Intern'], [750, 'Junior Accountant'], [2000, 'Accountant'], [3500, 'Senior Accountant'], [5500, 'Controller'], [8000, 'Finance Director'], [11000, 'CFO']];
+  function rankFor(score){
+    let i = 0; for (let k = 0; k < RANKS.length; k++) if (score >= RANKS[k][0]) i = k;
+    return {name:RANKS[i][1], next:RANKS[i + 1] ? RANKS[i + 1][1] : null, need:RANKS[i + 1] ? RANKS[i + 1][0] - score : 0};
+  }
+  const pbKey = () => 'pb-' + modeFor();
+
   let G = null, last = 0;
 
   function newGame(name){
     const pw = {}; for (const k of Object.keys(POWERS)) pw[k] = {f:0, active:0, ready:false};
     G = {name, t:-2.6, score:0, items:[], fx:[], pw, playing:true, paused:false,
-      st:{manual:0, bot:0, ai:0, elim:0, missed:0, powers:0, dupRej:0}, seen:{}, bq:[],
+      st:{manual:0, bot:0, ai:0, elim:0, missed:0, powers:0, dupRej:0, clutch:0, bestStreak:0, spikes:0}, seen:{}, bq:[],
+      streak:0, lastPost:-9, spikeI:0, spikeLeft:0, spikeWarned:-1, pb:store.get(pbKey(), 0), pbHit:false,
       acc:.3, bot:0, aiTick:0, aiOffer:false, aiPreviewUsed:false, aiPreview:0, hints:{}, banner:null, xMsg:0, lineFlash:0, count:3,
       failed:null, playedMs:0};
   }
@@ -441,8 +458,14 @@
   function postBy(it, who){
     const m = mult(), cx = it.x + CW / 2, cy = it.y + CH / 2;
     if (who === 'hand'){
-      const p = Math.round(KIND[it.k].pts * m); G.st.manual++;
-      addScore(p, cx, it.y, KIND[it.k].col); burst(cx, cy, 14, KIND[it.k].col, true); AU.sfx('post');
+      const before = streakMult(G.streak);
+      G.streak = G.t - G.lastPost <= STREAK_GAP ? G.streak + 1 : 1; G.lastPost = G.t;
+      if (G.streak > G.st.bestStreak) G.st.bestStreak = G.streak;
+      const sm = streakMult(G.streak), clutch = it.y + CH >= L.line - (L.line - L.top) * .12;
+      if (sm > before){ AU.sfx('streak'); G.fx.push({x:W / 2, y:L.top + 70, txt:'STREAK ' + G.streak + ' · ×' + sm, col:'#ffc23d', life:1.2}); }
+      const p = Math.round(KIND[it.k].pts * m * sm * (clutch ? 1.5 : 1)); G.st.manual++;
+      if (clutch){ G.st.clutch++; AU.sfx('clutch'); }
+      addScore(p, cx, it.y, clutch ? '#ffc23d' : KIND[it.k].col, clutch ? 'CLUTCH +' + fmt(p) : null); burst(cx, cy, clutch ? 22 : 14, clutch ? '#ffc23d' : KIND[it.k].col, true); if (!clutch) AU.sfx('post');
       for (const k of Object.keys(POWERS)){
         if (k === 'ai' && !aiUnlocked()) continue;
         const P = G.pw[k]; if (P.active > 0) continue;
@@ -533,6 +556,26 @@
     // spawning
     let rate = .8 + 3.0 * Math.pow(p, 1.4);
     if (G.pw.elim.active > 0) rate *= .6;
+    // month-end spikes
+    const nextSpike = SPIKES[G.spikeI];
+    if (nextSpike != null && G.spikeWarned !== G.spikeI && G.t >= nextSpike - SPIKE_WARN){
+      G.spikeWarned = G.spikeI; AU.sfx('spike');
+      banner('MONTH-END SPIKE IN 3 S · extra volume incoming', '#ffb84d', SPIKE_WARN, true);
+    }
+    if (nextSpike != null && G.spikeLeft === 0 && G.t >= nextSpike){
+      G.spikeLeft = SPIKE_LEN; V.shake = Math.max(V.shake, .15);
+      banner('MONTH-END SPIKE · volume ×1.8 for 6 s', '#ffb84d', 2.4, true);
+    }
+    if (G.spikeLeft > 0){
+      rate *= 1.8; G.spikeLeft -= dt;
+      if (G.spikeLeft <= 0){
+        G.spikeLeft = 0; G.spikeI++; G.st.spikes++;
+        const sb = Math.round(200 * m); addScore(sb, W / 2, L.top + 90, '#ffb84d', 'SPIKE CLEARED +' + fmt(sb));
+        banner('Spike cleared · +' + fmt(sb), '#4fe0a0', 2, true); AU.sfx('ready');
+      }
+    }
+    if (G.streak && G.t - G.lastPost > STREAK_GAP) G.streak = 0;
+    if (!G.pbHit && G.pb > 0 && G.score > G.pb){ G.pbHit = true; AU.sfx('pb'); banner('NEW PERSONAL BEST · keep going', '#4fe0a0', 2.4, true); }
     G.acc += rate * dt;
     while (G.acc >= 1){
       G.acc--;
@@ -637,7 +680,7 @@
     }
     // banners sit behind the entries: a message may never hide an entry you must post
     if (G.banner){
-      const b = G.banner, a = clamp(b.t * 2, 0, 1), y = L.top + 14;
+      const b = G.banner, a = clamp(b.t * 2, 0, 1), y = Math.round(L.top + (L.line - L.top) * .36);   // mid-field, away from where entries arrive
       g.globalAlpha = a; g.font = '600 13px "IBM Plex Sans", sans-serif';
       const w = Math.min(W - 24, g.measureText(b.txt).width + 32);
       g.fillStyle = 'rgba(6,10,34,.88)'; rr(g, W / 2 - w / 2, y, w, 32, 16); g.fill();
@@ -697,7 +740,11 @@
     if (hudCache.score !== G.score){ hudCache.score = G.score; $('h-score').textContent = fmt(G.score); }
     $('h-time').style.transform = 'scaleX(' + clamp(1 - Math.max(0, G.t) / CFG.dur, 0, 1) + ')';
     const s = G.st, posted = s.manual + s.bot + s.ai;
-    const html = '<span>Posted <b>' + fmt(posted) + '</b></span>' + (G.failed ? '<span class="bad"><b>Close failed</b></span>' : '<span class="good">First time right <b>✓</b></span>') + '<span>×<b>' + mult().toFixed(1) + '</b></span>';
+    const sm = streakMult(G.streak);
+    const html = '<span>Posted <b>' + fmt(posted) + '</b></span>' + (G.failed ? '<span class="bad"><b>Close failed</b></span>' : '<span class="good">First time right <b>✓</b></span>')
+      + '<span class="' + (sm > 1 ? 'hot' : '') + '">Streak <b>' + G.streak + '</b></span><span>×<b>' + (mult() * sm).toFixed(1) + '</b></span>';
+    const pbTxt = G.pb ? (G.pbHit ? 'New PB!' : 'PB ' + fmt(G.pb)) : '';
+    if (hudCache.pb !== pbTxt){ hudCache.pb = pbTxt; $('h-pb').textContent = pbTxt; $('h-pb').classList.toggle('good', G.pbHit); }
     if (hudCache.stats !== html){ hudCache.stats = html; $('h-stats').innerHTML = html; measureTop(); }
     renderPowers();
   }
@@ -735,6 +782,8 @@
     // 1) the card you actually touch, topmost as drawn; 2) otherwise the nearest card within a small margin (never a duplicate)
     let best = null;
     for (let i = G.items.length - 1; i >= 0; i--) if (inside(G.items[i], 0)){ best = G.items[i]; break; }
+    // benefit of the doubt: if a duplicate and a real entry overlap under your finger, you meant the real entry
+    if (best && best.k === 'D'){ const real = G.items.slice().reverse().find(it => it.k !== 'D' && inside(it, 0)); if (real) best = real; }
     if (!best){
       let bd = Infinity;
       for (const it of G.items) if (it.k !== 'D' && inside(it, 12)){ const d = Math.hypot(px - it.x - CW / 2, py - it.y - CH / 2); if (d < bd){ bd = d; best = it; } }
@@ -809,10 +858,19 @@
     const bonus = flawless ? Math.round(G.score * .5) : 0; G.score += bonus;
     const playedMs = flawless ? CFG.dur * 1000 : Math.round(G.playedMs);
     const run = {p_player:PLAYER, p_name:G.name, p_mode:modeFor(), p_score:Math.round(G.score), p_version:CFG.version,
-      p_stats:{duration_ms:playedMs, posted, manual:s.manual, bot:s.bot, ai:s.ai, eliminated:s.elim, missed:s.missed, dup_rejected:s.dupRej, dup_posted:s.dupPosted || 0, flawless:flawless ? 1 : 0, bonus, powers:s.powers, preview:G.aiPreviewUsed ? 1 : 0}};
+      p_stats:{duration_ms:playedMs, posted, manual:s.manual, bot:s.bot, ai:s.ai, eliminated:s.elim, missed:s.missed, dup_rejected:s.dupRej, dup_posted:s.dupPosted || 0, flawless:flawless ? 1 : 0, bonus, powers:s.powers, preview:G.aiPreviewUsed ? 1 : 0,
+        best_streak:s.bestStreak, clutch:s.clutch, spikes:s.spikes}};
+    const newPB = run.p_score > G.pb; if (newPB) store.set(pbKey(), run.p_score);
+    const rank = rankFor(run.p_score);
     AU.sfx('end'); AU.mood(3200, .7); setScene(.7, 1, 1, .8);
 
-    $('e-eyebrow').textContent = G.name + ' · ' + (aiUnlocked() ? 'Season 2 · AI unlocked' : 'Season 1 · ESSA');
+    $('e-eyebrow').textContent = G.name + ' · ' + (aiUnlocked() ? 'Season 2 · AI unlocked' : 'Season 1 · ESSA') + (newPB && G.pb ? ' · new personal best!' : '');
+    $('e-rank').textContent = rank.name + (flawless ? ' ★' : '');
+    $('e-rank-next').textContent = rank.next ? fmt(rank.need) + ' points to ' + rank.next : 'Top rank. The books are in safe hands.';
+    $('e-extra').textContent = 'Best streak ' + s.bestStreak + ' · ' + s.clutch + ' clutch save' + (s.clutch === 1 ? '' : 's') + ' · ' + s.spikes + ' of ' + SPIKES.length + ' spikes cleared'
+      + (G.pb && !newPB ? ' · your best: ' + fmt(G.pb) : '');
+    G.share = shareText(run.p_score, posted, rank, flawless);
+    $('e-share-status').textContent = '';
     $('e-title').textContent = flawless ? 'Flawless close. First time right.' : 'Close failed after ' + clockAt(G.failed.at) + '.';
     const bd = $('e-breakdown'); bd.textContent = '';
     [[s.manual, 'by hand'], [s.bot + s.elim, 'by automation & eliminate'], [s.ai, 'by AI']].forEach(([v, l]) => {
@@ -837,6 +895,33 @@
     show('s-end'); countUp($('e-score'), run.p_score);
     submitRun(run);
   }
+  // spoiler-free summary for Teams/WhatsApp: a 10-block timeline of the 90 seconds
+  function shareText(score, posted, rank, flawless){
+    const blocks = [];
+    for (let i = 0; i < 10; i++){
+      const a = i * 9, b = a + 9;
+      blocks.push(flawless || G.failed.at >= b ? '🟩' : G.failed.at >= a ? '🟥' : '⬛');
+    }
+    const head = flawless ? '✅ Flawless close · 90 s' : '❌ Close failed at ' + clockAt(G.failed.at) + (G.failed.why === 'dup' ? ' · duplicate posted' : ' · entry missed');
+    return ['Close the Books · ' + (aiUnlocked() ? 'Season 2' : 'Season 1'), head, blocks.join(''),
+      '🏆 ' + fmt(score) + ' · ' + rank.name + (flawless ? ' ★' : ''),
+      '📒 ' + fmt(posted) + ' entries · 🔥 streak ' + G.st.bestStreak + ' · ⚡ ' + G.st.clutch + ' clutch',
+      location.origin + location.pathname].join('\n');
+  }
+  async function share(){
+    if (!G || !G.share) return;
+    const st = $('e-share-status');
+    try {
+      if (navigator.share && matchMedia('(pointer: coarse)').matches){ await navigator.share({text:G.share}); st.textContent = 'Shared.'; return; }
+    } catch(e){ if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(G.share); st.textContent = 'Copied. Paste it in Teams or a chat to challenge your colleagues.'; }
+    catch(e){
+      const ta = document.createElement('textarea'); ta.value = G.share; document.body.appendChild(ta); ta.select();
+      let ok = false; try { ok = document.execCommand('copy'); } catch(_){}
+      ta.remove(); st.textContent = ok ? 'Copied. Paste it in Teams or a chat.' : 'Copy did not work in this browser. Take a screenshot instead.';
+    }
+  }
+  $('share').addEventListener('click', share);
   function countUp(node, to){
     if (reduced){ node.textContent = fmt(to); return; }
     const t0 = performance.now(), d = 1400;
@@ -919,6 +1004,7 @@
   /* ================= start ================= */
   $('f-start').addEventListener('submit', e => { e.preventDefault(); startGame(); });
   $('again').addEventListener('click', startGame);
+  $('again-top').addEventListener('click', startGame);
   $('home').addEventListener('click', goHome);
   $('name').value = store.get('name', '');
 
