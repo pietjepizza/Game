@@ -1,6 +1,6 @@
 # Close the Books
 
-A browser game for the Finance Operations team. Volume grows, the team doesn't. One 90-second close: tap entries before they hit the period-end close line, and use the four **ESSA power buttons** (Eliminate, Simplify, Standardize, Automate) once they are charged. The **AI button is locked until January**; each game offers one 3-second AI preview, AI-ready entries fall past with a lock, and the end screen gives a practical AI tip.
+A browser game for the Finance Operations team. Volume grows, the team doesn't. One 90-second close, **first time right**: tap every entry before it hits the period-end close line. Miss a single entry and the close fails, because you can't tell which entry is material. Finish all 90 seconds for a 50% flawless bonus. Use the four **ESSA power buttons** (Eliminate, Simplify, Standardize, Automate) once they are charged. The **AI button is locked until January**; each game offers one 3-second AI preview, AI-ready entries fall past with a lock, and the end screen gives a practical AI tip.
 
 **Play:** https://pietjepizza.github.io/Game/ (works on phone and desktop, no install).
 

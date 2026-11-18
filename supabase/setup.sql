@@ -58,17 +58,17 @@ begin
   if char_length(v_name) < 1 or char_length(v_name) > 24 then
     return json_build_object('ok', false, 'reason', 'bad_name');
   end if;
-  -- a game takes at least 20 seconds and at most 30 minutes
-  if v_dur < 20000 or v_dur > 1800000 then
+  -- a close fails at the first missed entry, so games can be short; at most 30 minutes
+  if v_dur < 3000 or v_dur > 1800000 then
     return json_build_object('ok', false, 'reason', 'bad_duration');
   end if;
   -- no more than 25 entries per second played, no more than 400 points per entry on average
   if v_posted > v_dur / 1000 * 25 or p_score > greatest(v_posted, 1) * 400 + 20000 then
     return json_build_object('ok', false, 'reason', 'implausible');
   end if;
-  -- one submission per player every 15 seconds
+  -- one submission per player every 5 seconds (a game always takes longer than that)
   select max(created_at) into v_last from runs where player_id = p_player;
-  if v_last is not null and now() - v_last < interval '15 seconds' then
+  if v_last is not null and now() - v_last < interval '5 seconds' then
     return json_build_object('ok', false, 'reason', 'too_fast');
   end if;
   insert into runs (player_id, name, mode, score, stats, version)

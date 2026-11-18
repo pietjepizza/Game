@@ -8,7 +8,7 @@
   const CFG = {
     url: 'https://evdtpvbacpibeasrczhu.supabase.co',
     key: 'sb_publishable_Y1GmwdTaooG8yqFTTTZApQ_WVwIwyZz',
-    version: '3.0.0',
+    version: '3.1.0',
     dur: 90
   };
   const $ = id => document.getElementById(id);
@@ -131,6 +131,7 @@
         case 'count':  this.tone(880, .12, 'triangle', .07); break;
         case 'go':     [523, 784, 1047].forEach((f, i) => this.tone(f, .5, 'triangle', .07, t + i * .08)); break;
         case 'end':    [392, 523, 659, 784, 1047].forEach((f, i) => this.tone(f, .7, 'triangle', .06, t + i * .1)); break;
+        case 'fail':   this.tone(98, 1.4, 'sawtooth', .12, 0, 40); this.noise(1, .14, 2500, 120); [330, 262, 196].forEach((f, i) => this.tone(f, .6, 'triangle', .07, t + .3 + i * .22)); break;
       }
     }
   };
@@ -356,7 +357,8 @@
     const pw = {}; for (const k of Object.keys(POWERS)) pw[k] = {f:0, active:0, ready:false};
     G = {name, t:-2.6, score:0, items:[], fx:[], pw, playing:true, paused:false,
       st:{manual:0, bot:0, ai:0, elim:0, missed:0, powers:0},
-      acc:.3, bot:0, aiTick:0, aiOffer:false, aiPreviewUsed:false, aiPreview:0, hints:{}, banner:null, xMsg:0, lineFlash:0, count:3};
+      acc:.3, bot:0, aiTick:0, aiOffer:false, aiPreviewUsed:false, aiPreview:0, hints:{}, banner:null, xMsg:0, lineFlash:0, count:3,
+      failed:null, playedMs:0};
   }
 
   function startGame(){
@@ -414,9 +416,21 @@
     remove(it);
   }
 
+  /* ---------- first time right: one missed entry fails the close ---------- */
+  function failClose(it){
+    G.st.missed = 1;
+    G.failed = {it, wait:2.8, at:G.t};
+    G.aiPreview = 0; G.aiOffer = false; V.aiGlow = 0; G.banner = null;
+    V.shake = .55; V.flash = .35; G.lineFlash = 1;
+    AU.sfx('fail'); AU.mood(380, .6, .3);
+    burst(it.x + CW / 2, L.line - CH / 2, 30, '#ff5d73', false);
+    renderPowers(true);
+  }
+  const clockAt = t => { const s = Math.max(0, Math.floor(t)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+
   /* ---------- powers ---------- */
   function usePower(k){
-    if (!G || !G.playing || G.paused || G.t < 0) return;
+    if (!G || !G.playing || G.paused || G.t < 0 || G.failed) return;
     if (k === 'ai'){
       if (G.aiOffer && !aiUnlocked()) return aiPreview();
       if (!aiUnlocked()){ AU.sfx('lock'); hint('ailock', 'AI unlocks in January 🔒', '#a78bfa'); return; }
@@ -453,18 +467,24 @@
     // countdown before the clock starts
     if (G.t < 0){
       const before = Math.ceil(-G.t); G.t += dt;
-      if (G.t >= 0){ AU.sfx('go'); AU.mood(2000, .78); hint('tut0', 'Tap entries before they hit the close line', '#5fd6f5'); }
+      if (G.t >= 0){ AU.sfx('go'); AU.mood(2000, .78); hint('tut0', 'First time right: miss one entry and the close fails', '#5fd6f5'); }
       else if (Math.ceil(-G.t) !== before) AU.sfx('count');
       return;
     }
-    G.t += dt;
+    if (G.failed){
+      G.failed.wait -= dt;
+      for (let i = G.fx.length - 1; i >= 0; i--){ const f = G.fx[i]; f.life -= dt; f.y -= 30 * dt; if (f.life <= 0) G.fx.splice(i, 1); }
+      if (G.failed.wait <= 0) finish();
+      return;
+    }
+    G.t += dt; G.playedMs += dt * 1000;
     const p = clamp(G.t / CFG.dur, 0, 1), m = mult();
     // music opens up as the pressure builds
     if (!G.aiPreview && Math.floor(G.t) !== Math.floor(G.t - dt)) AU.mood(1800 + 16000 * p * p, .78);
     setScene(.5, .8, .55, .35 + .65 * p);
 
     // spawning
-    let rate = 1.0 + 3.2 * Math.pow(p, 1.25);
+    let rate = .8 + 3.0 * Math.pow(p, 1.4);
     if (G.pw.elim.active > 0) rate *= .6;
     G.acc += rate * dt;
     while (G.acc >= 1){
@@ -481,14 +501,14 @@
       P.ready = ready;
     }
     // the one-time AI preview offer during the busiest part of season 1
-    if (!aiUnlocked() && !G.aiPreviewUsed && !G.aiOffer && ((G.t > 48 && G.items.length >= 7) || G.t > 68)){
+    if (!aiUnlocked() && !G.aiPreviewUsed && !G.aiOffer && ((G.t > 30 && G.items.length >= 6) || G.t > 55)){
       G.aiOffer = true; banner('AI PREVIEW AVAILABLE · tap the AI button', '#a78bfa', 3.2); AU.sfx('ready');
     }
     // nudge when manual work alone isn't enough
-    if (G.st.missed >= 3 && !G.st.powers) hint('nudge', 'Manual alone can’t keep up. Use your ESSA powers.', '#ff5d73');
+    if (G.items.filter(it => it.k !== 'X').length >= 6 && !G.st.powers && G.t > 15) hint('nudge', 'Manual alone can’t keep up. Use your ESSA powers.', '#ffb84d');
 
     // movement
-    const fallT = (4.6 - 1.4 * p) * (G.pw.std.active > 0 ? 1.6 : 1);
+    const fallT = (5.0 - 1.6 * p) * (G.pw.std.active > 0 ? 1.6 : 1);
     const vy = (L.line - L.top + CH) / fallT;
     for (let i = G.items.length - 1; i >= 0; i--){
       const it = G.items[i];
@@ -499,12 +519,11 @@
       if (it.y + CH < L.line) continue;
       G.items.splice(i, 1);
       if (it.k === 'X'){
+        hint('xpass', 'AI-ready work waits for AI in January. Not a miss.', '#a78bfa');
         if (G.t - G.xMsg > 6){ G.xMsg = G.t; G.fx.push({x:it.x + CW / 2, y:L.line - 12, txt:'AI could do this · January', col:'#a78bfa', life:1.2}); }
         burst(it.x + CW / 2, L.line, 6, '#8d98c9', false);
       } else {
-        G.st.missed++; V.shake = .2; G.lineFlash = .5;
-        G.fx.push({x:it.x + CW / 2, y:L.line - 12, txt:'MISSED', col:'#ff5d73', life:.8});
-        AU.sfx('late'); burst(it.x + CW / 2, L.line, 10, '#ff5d73', false);
+        failClose(it); return;
       }
     }
 
@@ -576,6 +595,24 @@
     for (const f of G.fx){ g.globalAlpha = clamp(f.life * 1.6, 0, 1); g.fillStyle = f.col; g.font = '600 13px "IBM Plex Mono", monospace'; g.fillText(f.txt, f.x, f.y); }
     g.globalAlpha = 1;
 
+    if (G.failed){
+      const it = G.failed.it, y = L.line - CH, pulse = .5 + .5 * Math.sin(V.t * 10);
+      g.fillStyle = 'rgba(14,2,10,' + (.68 + .06 * pulse) + ')'; g.fillRect(0, 0, W, H);
+      g.drawImage(sprite(it), it.x - PAD, y - PAD, CW + PAD * 2, CH + PAD * 2);
+      g.strokeStyle = 'rgba(255,93,115,' + (.6 + .4 * pulse) + ')'; g.lineWidth = 3; rr(g, it.x - 3, y - 3, CW + 6, CH + 6, 14); g.stroke();
+      g.textAlign = 'center'; g.font = '700 12px "IBM Plex Mono", monospace';
+      const lx = clamp(it.x + CW / 2, 130, W - 130), lw = g.measureText('MISSED · MATERIALITY UNKNOWN').width + 24;
+      g.fillStyle = 'rgba(20,4,16,.95)'; rr(g, lx - lw / 2, y - 34, lw, 26, 13); g.fill();
+      g.fillStyle = '#ff5d73'; g.fillText('MISSED · MATERIALITY UNKNOWN', lx, y - 16.5);
+      const bw = Math.min(W - 24, 440), by = H * .38 - 64;
+      g.fillStyle = 'rgba(20,4,16,.92)'; rr(g, W / 2 - bw / 2, by, bw, 140, 18); g.fill();
+      g.strokeStyle = 'rgba(255,93,115,.55)'; g.lineWidth = 1; rr(g, W / 2 - bw / 2 + .5, by + .5, bw - 1, 139, 18); g.stroke();
+      g.shadowColor = 'rgba(255,93,115,.8)'; g.shadowBlur = 26; g.fillStyle = '#fff';
+      g.font = '800 ' + Math.round(Math.min(56, W * .12)) + 'px "Sora", sans-serif'; g.fillText('Close failed', W / 2, H * .38);
+      g.shadowBlur = 0; g.fillStyle = '#ffc2cb'; g.font = '500 15px "IBM Plex Sans", sans-serif';
+      g.fillText('One missed entry after ' + clockAt(G.failed.at) + '.', W / 2, H * .38 + 30, bw - 24);
+      g.fillText('First time right, or not at all.', W / 2, H * .38 + 52, bw - 24);
+    }
     if (G.banner){
       const b = G.banner, a = clamp(b.t * 2, 0, 1), y = L.top + 14;
       g.globalAlpha = a; g.font = '600 13px "IBM Plex Sans", sans-serif';
@@ -604,7 +641,7 @@
     if (hudCache.score !== G.score){ hudCache.score = G.score; $('h-score').textContent = fmt(G.score); }
     $('h-time').style.transform = 'scaleX(' + clamp(1 - Math.max(0, G.t) / CFG.dur, 0, 1) + ')';
     const s = G.st, posted = s.manual + s.bot + s.ai;
-    const html = '<span>Posted <b>' + fmt(posted) + '</b></span><span class="' + (s.missed ? 'bad' : '') + '">Missed <b>' + s.missed + '</b></span><span>×<b>' + mult().toFixed(1) + '</b></span>';
+    const html = '<span>Posted <b>' + fmt(posted) + '</b></span>' + (G.failed ? '<span class="bad"><b>Close failed</b></span>' : '<span class="good">First time right <b>✓</b></span>') + '<span>×<b>' + mult().toFixed(1) + '</b></span>';
     if (hudCache.stats !== html){ hudCache.stats = html; $('h-stats').innerHTML = html; }
     renderPowers();
   }
@@ -635,7 +672,7 @@
 
   /* ---------- input ---------- */
   cv.addEventListener('pointerdown', e => {
-    if (!G || !G.playing || G.paused || G.t < 0) return;
+    if (!G || !G.playing || G.paused || G.t < 0 || G.failed) return;
     e.preventDefault();
     const px = e.clientX, py = e.clientY, pad = 12; let best = null;
     for (const it of G.items) if (px >= it.x - pad && px <= it.x + CW + pad && py >= it.y - pad && py <= it.y + CH + pad && (!best || it.y > best.y)) best = it;
@@ -691,13 +728,15 @@
   /* ================= end & leaderboard ================= */
   function finish(){
     G.playing = false; $('pause').hidden = true; V.streaks.length = 0;
-    const s = G.st, posted = s.manual + s.bot + s.ai;
+    const s = G.st, posted = s.manual + s.bot + s.ai, flawless = !G.failed;
+    const bonus = flawless ? Math.round(G.score * .5) : 0; G.score += bonus;
+    const playedMs = flawless ? CFG.dur * 1000 : Math.round(G.playedMs);
     const run = {p_player:PLAYER, p_name:G.name, p_mode:modeFor(), p_score:Math.round(G.score), p_version:CFG.version,
-      p_stats:{duration_ms:CFG.dur * 1000, posted, manual:s.manual, bot:s.bot, ai:s.ai, eliminated:s.elim, missed:s.missed, powers:s.powers, preview:G.aiPreviewUsed ? 1 : 0}};
+      p_stats:{duration_ms:playedMs, posted, manual:s.manual, bot:s.bot, ai:s.ai, eliminated:s.elim, missed:s.missed, flawless:flawless ? 1 : 0, bonus, powers:s.powers, preview:G.aiPreviewUsed ? 1 : 0}};
     AU.sfx('end'); AU.mood(3200, .7); setScene(.7, 1, 1, .8);
 
     $('e-eyebrow').textContent = G.name + ' · ' + (aiUnlocked() ? 'Season 2 · AI unlocked' : 'Season 1 · ESSA');
-    $('e-title').textContent = s.missed === 0 ? 'Flawless close.' : s.missed <= 5 ? 'Books closed.' : 'Closed, just about.';
+    $('e-title').textContent = flawless ? 'Flawless close. First time right.' : 'Close failed after ' + clockAt(G.failed.at) + '.';
     const bd = $('e-breakdown'); bd.textContent = '';
     [[s.manual, 'by hand'], [s.bot + s.elim, 'by automation & eliminate'], [s.ai, 'by AI']].forEach(([v, l]) => {
       const d = el('div'); d.append(el('b', '', fmt(v)), el('span', '', l)); bd.appendChild(d); });
@@ -705,11 +744,15 @@
     [['score', '🏆 Score', fmt(run.p_score)], ['entries', '📒 Entries', fmt(posted) + ' posted']].forEach(([c, t, v]) => {
       const d = el('div'); d.dataset.cat = c; d.append(el('small', '', t), el('b', '', '–'), el('span', '', v)); rk.appendChild(d); });
     $('e-tip').textContent = pick(TIPS);
+    const missedTxt = G.failed ? (G.failed.it.k === 'C' ? 'Complex deal' : 'Journal entry') + ' \u00b7 ' + G.failed.it.sub : '';
+    const head = flawless
+      ? 'You closed <b>' + fmt(posted) + '</b> entries in 90 seconds without missing a single one: <b>+' + fmt(bonus) + '</b> flawless bonus. '
+      : 'You missed one entry (<b>' + missedTxt + '</b>) ' + (posted ? 'after ' + fmt(posted) + ' posted' : 'before posting anything') + '. You don\u2019t know whether it was material until it is too late. ';
     if (aiUnlocked()){
-      $('e-lede').innerHTML = 'You closed <b>' + fmt(posted) + '</b> entries in 90 seconds, <b>' + fmt(s.ai) + '</b> of them with AI. ESSA fixes the process; AI multiplies what the team can do.';
+      $('e-lede').innerHTML = head + (s.ai ? '<b>' + fmt(s.ai) + '</b> entries were handled by AI. ' : '') + 'ESSA fixes the process; <b>AI</b> multiplies what the team can do.';
       $('e-tbc').firstChild.textContent = 'The future of the close';
     } else {
-      $('e-lede').innerHTML = 'You closed <b>' + fmt(posted) + '</b> entries in 90 seconds. ESSA made the difference. ' + (G.aiPreviewUsed ? 'You saw three seconds of AI. ' : '') + 'In January, <b>AI</b> joins the team.';
+      $('e-lede').innerHTML = head + (flawless ? 'ESSA made the difference. ' : 'Use ESSA to stay ahead of the volume. ') + (G.aiPreviewUsed ? 'You saw three seconds of AI. ' : '') + 'In January, <b>AI</b> joins the team.';
       $('e-tbc').firstChild.textContent = 'To be continued';
     }
     show('s-end'); countUp($('e-score'), run.p_score);

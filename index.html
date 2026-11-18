@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=3.0.0">
+<link rel="stylesheet" href="style.css?v=3.1.0">
 </head>
 <body>
 <canvas id="world" aria-hidden="true"></canvas>
@@ -26,7 +26,7 @@
         <span class="t1">Close the</span>
         <span class="t2">Books</span>
       </h1>
-      <p class="tagline rv" style="--d:1.6s">Volume grows every year. The team doesn't.<br>90 seconds. How much can you close?</p>
+      <p class="tagline rv" style="--d:1.6s">Volume grows every year. The team doesn't.<br>90 seconds, first time right: miss one entry and the close fails.</p>
 
       <div class="powers-intro rv" style="--d:1.9s">
         <div class="pi"><b>E</b><span>Eliminate</span></div>
@@ -41,7 +41,7 @@
         <input id="name" maxlength="24" autocomplete="name" placeholder="First name + last initial">
         <div class="err" id="err" role="alert"></div>
         <button class="btn primary" type="submit"><span>Start the close</span></button>
-        <p class="fine">Tap entries before they hit the close line. Fill the ESSA power buttons by posting, then use them. Sound on.</p>
+        <p class="fine">Tap every entry before it hits the close line. You can’t tell which one is material, so you can’t miss any. Fill the ESSA power buttons by posting, then use them. Sound on.</p>
       </form>
 
       <section class="glass board-box rv" style="--d:2.4s" aria-labelledby="lb-h">
@@ -135,6 +135,6 @@
     f.textContent = 'Something went wrong (' + (e.message || 'script error') + '). Please reload the page with Ctrl+F5 / Cmd+Shift+R, or try another browser.';
   });
 </script>
-<script src="game.js?v=3.0.0"></script>
+<script src="game.js?v=3.1.0"></script>
 </body>
 </html>

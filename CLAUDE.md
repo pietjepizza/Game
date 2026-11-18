@@ -5,6 +5,9 @@ Browser game for a Finance Operations team (~125 people), handed out before Chri
 ## Message the game must carry
 Volume keeps growing; you cannot scale it with people. ESSA (eliminate, simplify, standardize, automate) is the foundation to fix processes; AI is the extra enabler on top. Goal: people become AI-native and upskilled in using AI in daily work, so the team can handle more volume.
 
+## Status (v3.1)
+First time right: one missed journal entry or complex deal fails the close immediately (freeze + "Close failed · materiality unknown", then end screen). AI-ready cards never fail the close. Surviving 90 s = "Flawless close" + 50% bonus. Score is still saved for failed closes (duration = time played; server minimum 3 s, resubmit window 5 s). Gentler start: rate .8→3.8/s, fall 5.0→3.4 s. AI preview offered from 30 s when busy (or at 55 s).
+
 ## Status (v3, 18 Nov 2026)
 Owner asked for simpler/shorter: v3 = one 90 s round, four ESSA power buttons (charge by posting by hand), locked AI button (one 3 s AI preview per game in season 1), locked "AI-ready" cards, AI tip on end screen, leaderboard score + entries (metric `posted`) with names. Seasons: `settings.season` = 's1' now; set to 's2' at the January event to unlock AI (submit_run only accepts the active season or 'test'). `?s2` previews season 2 in test mode.
 
