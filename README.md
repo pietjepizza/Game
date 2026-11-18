@@ -1,34 +1,52 @@
-# Close the Books: Extended
+# Close the Books
 
-A browser game about the period-end close. Entries fall toward the red close line and you post them before they get there. Volume and complexity grow every year; the team does not.
+A browser game for the Finance Operations team, season 2026. Volume grows every year, the team doesn't. You close the books in three acts:
 
-**Play:** once GitHub Pages is on (see below), the game is at `https://pietjepizza.github.io/Game/`.
+1. **Manual**: tap every entry before it hits the period-end close line. The volume triples until it can't be done by hand.
+2. **ESSA**: pick two of Eliminate, Simplify, Standardize and Automate, and close again with a better process.
+3. **AI-native**: AI posts the volume. You handle complex deals and catch AI errors. Two quick upskilling questions before this act decide how accurate the AI is.
 
-## What's in it
+**Play:** https://pietjepizza.github.io/Game/ (about 3 minutes, works on phone and desktop, no install).
 
-- **Three modes**
-  - **Campaign 2026–2030**: five year-end closes, each with its own events (fast shipments, audit season, CFO asks, an ERP cutover). You earn improvement points and stars between years.
-  - **Endless, beyond 2030**: the volume keeps rising. After every quarter close you pick one of three improvements.
-  - **Daily Close**: two minutes with the same entries for everyone that day, plus a daily twist (Audit week, Bots on strike, Duplicate storm, and so on).
-- **10 entry types**: manual JE, complex transaction, new business flow, correction, treatment unclear, intercompany pairs, unstructured case, audit request (press and hold), urgent CFO ask, and duplicates (don't post them).
-- **10 upgrades** in three groups: ESSA (Eliminate, Simplify, Standardize, Automate), People (Cross-training, Deep work) and AI (Smart matching, Duplicate detection, Copilot, AI agent).
-- **Abilities**: Focus fills as you post. Spend it on *Overtime* (slow motion) or *Copilot* (sweeps simple slips).
-- **Combo multiplier** up to ×3, **3 difficulty levels**, **stars** per year, **16 achievements**, lifetime stats and high scores per mode.
-- Synthesised sound and music, keyboard support (`1`, `2`, `P`/`Esc`), pause, and support for phone and desktop.
+## Leaderboard
 
-Scores and achievements are kept in each player's own browser (localStorage). There is no server.
+Shared online leaderboard with three prize categories:
 
-## Turn on GitHub Pages
+- 🏆 **Score**: highest total score.
+- ⚡ **Fastest**: lowest average time to post an entry by hand (at least 30 entries).
+- 🔍 **Reviewer**: AI errors caught in Act 3, minus correct AI drafts rejected.
 
-1. Open the repository on GitHub, then go to **Settings → Pages**.
-2. Under *Build and deployment*, set **Source** to **Deploy from a branch**.
-3. Choose the branch with the game (`main` after merging, or the feature branch directly) and the folder **/ (root)**, then click **Save**.
-4. After a minute or two the game is live at `https://pietjepizza.github.io/Game/`.
+Only each player's best result per category counts. The season closes on the date in the `settings` table (default 31 January 2027).
+
+The backend is a Supabase project (EU, Frankfurt). The website uses the public publishable key. The tables cannot be read or written directly: all access goes through three database functions defined in `supabase/setup.sql`, which reject implausible scores, too-short games and rapid repeat submissions.
+
+### Useful admin queries (Supabase SQL editor)
+
+```sql
+-- Top 10 per category
+select * from leaderboard('v2', 'score', false, 10);
+select * from leaderboard('v2', 'avg_ms', true, 10);
+select * from leaderboard('v2', 'review', false, 10);
+
+-- Close the season now / move the closing date
+update settings set value = '2027-01-15T23:59:00+01:00' where key = 'season_end';
+
+-- Remove a player's entries (for example an inappropriate name)
+delete from runs where name = 'Example';
+```
+
+## Testing
+
+Add `?test` to the URL (`https://pietjepizza.github.io/Game/?test`). Test games are stored in a separate `test` category and never show on the real leaderboard. To clear them: `delete from runs where mode = 'test';`
 
 ## Files
 
 - `index.html`: screens and layout
 - `style.css`: styling
-- `game.js`: all game logic, no dependencies and no build step
+- `game.js`: game, visuals, sound and leaderboard client (no dependencies, no build step)
+- `assets/drama.mp3`: music, "Drama" by Holizna (CC0, via OpenGameArt.org)
+- `supabase/setup.sql`: database setup
 
-To play locally, open `index.html` in a browser, or run `python3 -m http.server` in this folder and go to `http://localhost:8000`.
+## Publishing
+
+GitHub Pages serves the `gh-pages` branch. Push the new commit to `gh-pages` and the site updates within a minute or two.

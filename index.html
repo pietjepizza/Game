@@ -3,180 +3,120 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0b1a6e">
-<meta name="description" content="Close the Books: Extended. Post every entry before it hits the period-end close line. Campaign, Endless and a Daily Close.">
-<title>Close the Books: Extended</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1a6e'/%3E%3Crect x='7' y='7' width='18' height='12' rx='2' fill='%23fff'/%3E%3Crect x='7' y='7' width='4' height='12' rx='1' fill='%235fd6f5'/%3E%3Cpath d='M4 25h24' stroke='%23ff6b5e' stroke-width='2.5' stroke-dasharray='4 3'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#040716">
+<meta name="description" content="Close the Books. Volume grows, the team doesn't. Close manually, fix the process with ESSA, then go AI-native. Compete on the leaderboard.">
+<title>Close the Books</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%235fd6f5'/%3E%3Cstop offset='1' stop-color='%23a78bfa'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='%23040716'/%3E%3Ccircle cx='16' cy='17' r='10' fill='none' stroke='url(%23g)' stroke-width='2.5'/%3E%3Cpath d='M16 2v15' stroke='%23a78bfa' stroke-width='2.5'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;800&family=IBM+Plex+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<canvas id="world" aria-hidden="true"></canvas>
+<audio id="music" src="assets/drama.mp3" loop preload="auto"></audio>
+
 <main id="app">
 
-  <!-- ============ MENU ============ -->
-  <section id="s-menu" class="screen scroll on">
-    <div class="eyebrow">Finance Operations · extended edition</div>
-    <h1>Close the <em>Books</em></h1>
-    <p class="lede">Volume and complexity grow every year. The team does not grow at the same pace. Post every entry before it hits the period-end close line.</p>
+  <!-- ============ HOME ============ -->
+  <section id="s-home" class="screen on">
+    <div class="home">
+      <div class="eyebrow rv" style="--d:.2s">Finance Operations · Season 2026</div>
+      <h1 class="title" aria-label="Close the Books">
+        <span class="t1">Close the</span>
+        <span class="t2">Books</span>
+      </h1>
+      <p class="tagline rv" style="--d:1.6s">Volume grows every year. The team doesn't.<br>How much can you close?</p>
 
-    <form id="f-name" novalidate>
-      <label for="name">Your name</label>
-      <input id="name" name="name" maxlength="20" autocomplete="given-name" placeholder="First name or nickname">
-      <div class="err" id="err" role="alert"></div>
-    </form>
+      <ol class="acts rv" style="--d:1.9s">
+        <li><b>01</b><span>Manual</span><small>every entry by hand</small></li>
+        <li><b>02</b><span>ESSA</span><small>fix the process</small></li>
+        <li><b>03</b><span>AI-native</span><small>direct the AI, check its work</small></li>
+      </ol>
 
-    <div>
-      <h3>Difficulty</h3>
-      <div class="seg" id="diff" role="radiogroup" aria-label="Difficulty">
-        <button type="button" role="radio" data-d="easy">Easy</button>
-        <button type="button" role="radio" data-d="normal">Normal</button>
-        <button type="button" role="radio" data-d="hard">Hard</button>
-      </div>
+      <form id="f-start" class="glass start rv" style="--d:2.2s" novalidate>
+        <label for="name">Your name on the leaderboard</label>
+        <input id="name" maxlength="24" autocomplete="name" placeholder="First name + last initial">
+        <div class="err" id="err" role="alert"></div>
+        <button class="btn primary" type="submit"><span>Start the close</span></button>
+        <p class="fine">About 3 minutes. Sound on for the full experience. Your name and scores appear on the shared leaderboard.</p>
+      </form>
+
+      <section class="glass board-box rv" style="--d:2.4s" aria-labelledby="lb-h">
+        <div class="board-head">
+          <h2 id="lb-h">Leaderboard</h2>
+          <span class="season" id="season-left"></span>
+        </div>
+        <div class="tabs" role="tablist" data-board="home">
+          <button type="button" role="tab" data-cat="score">🏆 Score</button>
+          <button type="button" role="tab" data-cat="speed">⚡ Fastest</button>
+          <button type="button" role="tab" data-cat="review">🔍 Reviewer</button>
+        </div>
+        <p class="cat-desc" id="home-cat-desc"></p>
+        <ol class="board" id="board-home"></ol>
+      </section>
     </div>
-
-    <div class="modes">
-      <button type="button" class="mode" data-mode="campaign">
-        <span class="m-tag">Story</span>
-        <strong>Campaign 2026–2030</strong>
-        <span>Five year-end closes, a new challenge each year. Spend improvement points on ESSA, people and AI between years.</span>
-        <span class="m-best" id="best-campaign"></span>
-      </button>
-      <button type="button" class="mode" data-mode="endless">
-        <span class="m-tag">Survival</span>
-        <strong>Endless: beyond 2030</strong>
-        <span>The volume never stops. Every quarter close you pick one of three improvements. How long do you last?</span>
-        <span class="m-best" id="best-endless"></span>
-      </button>
-      <button type="button" class="mode" data-mode="daily">
-        <span class="m-tag">Today</span>
-        <strong>Daily Close</strong>
-        <span id="daily-desc">Two minutes, the same entries for everyone, one twist per day.</span>
-        <span class="m-best" id="best-daily"></span>
-      </button>
-    </div>
-
-    <div class="links">
-      <button type="button" class="btn ghost sm" data-go="s-guide">Field guide</button>
-      <button type="button" class="btn ghost sm" data-go="s-ach">Achievements <span id="ach-count"></span></button>
-      <button type="button" class="btn ghost sm" data-go="s-scores">High scores</button>
-    </div>
-    <p class="muted small">Scores, settings and achievements are kept in this browser only.</p>
   </section>
 
-  <!-- ============ FIELD GUIDE ============ -->
-  <section id="s-guide" class="screen scroll">
-    <button type="button" class="back" data-go="s-menu">← Menu</button>
-    <h2>Field guide</h2>
-    <p class="muted">Tap a slip to post it. Some need more than one tap, some need you to wait, and one you should never post.</p>
-    <ul class="legend" id="legend"></ul>
-    <h3>Controls</h3>
-    <ul class="plain">
-      <li><b>Tap / click</b> a slip to post it. <b>Hold</b> an audit request until the ring is full.</li>
-      <li><b>Focus</b> fills as you post. When it is full, use <b>Overtime</b> (slow motion) or <b>Copilot</b> (sweeps simple slips) once you have it.</li>
-      <li><b>Combo</b>: post without missing to raise your multiplier, up to ×3.</li>
-      <li>Keyboard: <kbd>1</kbd> Overtime, <kbd>2</kbd> Copilot, <kbd>P</kbd> or <kbd>Esc</kbd> pause.</li>
-    </ul>
-    <h3>Stars</h3>
-    <p class="muted">Each campaign year earns 3 stars with zero late entries, 2 with up to two, and 1 otherwise. Three stars earn a bonus improvement point.</p>
+  <!-- ============ PLAY HUD ============ -->
+  <section id="s-play" class="screen">
+    <div class="hud glass">
+      <div class="hud-act"><b id="h-act">ACT 1</b><span id="h-actname">Manual</span></div>
+      <div class="hud-score"><span>Score</span><b id="h-score">0</b></div>
+      <div class="hud-bar"><i id="h-time"></i></div>
+      <div class="hud-stats" id="h-stats"></div>
+    </div>
+    <button id="pause" class="icon-btn" type="button" aria-label="Pause">❚❚</button>
   </section>
 
-  <!-- ============ ACHIEVEMENTS ============ -->
-  <section id="s-ach" class="screen scroll">
-    <button type="button" class="back" data-go="s-menu">← Menu</button>
-    <h2>Achievements</h2>
-    <ul class="achs" id="achs"></ul>
-    <h3>Lifetime</h3>
-    <div class="facts" id="lifetime"></div>
-  </section>
-
-  <!-- ============ SCORES ============ -->
-  <section id="s-scores" class="screen scroll">
-    <button type="button" class="back" data-go="s-menu">← Menu</button>
-    <h2>High scores</h2>
-    <div class="seg" id="score-tabs" role="tablist">
-      <button type="button" role="tab" data-m="campaign">Campaign</button>
-      <button type="button" role="tab" data-m="endless">Endless</button>
-      <button type="button" role="tab" data-m="daily">Daily</button>
-    </div>
-    <ol class="board" id="board-scores"></ol>
-  </section>
-
-  <!-- ============ GAME ============ -->
-  <section id="s-game" class="screen">
-    <div class="hud">
-      <div class="yr" id="h-year">2026</div>
-      <div class="vol" id="h-vol"></div>
-      <div class="sc" id="h-score">0</div>
-      <div class="bar"><i id="h-time"></i></div>
-      <div class="hrow">
-        <div class="backlog" id="h-backlog"></div>
-        <div class="combo" id="h-combo"></div>
-      </div>
-    </div>
-    <div class="stage">
-      <canvas id="cv"></canvas>
-      <button id="pause" class="round" type="button" aria-label="Pause">II</button>
-      <button id="snd" class="round" type="button" aria-pressed="true" aria-label="Sound">♪</button>
-
-      <!-- between campaign years -->
-      <div class="overlay" id="shop">
-        <div class="eyebrow" id="shop-eyebrow"></div>
-        <div class="stars" id="shop-stars"></div>
-        <h2 id="shop-title"></h2>
-        <p class="news" id="shop-news"></p>
-        <p class="muted">Improvement points left: <span class="pts" id="shop-pts"></span></p>
-        <div class="ups" id="ups"></div>
-        <button class="btn" id="shop-go" type="button"></button>
-      </div>
-
-      <!-- endless quarter draft -->
-      <div class="overlay" id="draft">
-        <div class="eyebrow" id="draft-eyebrow"></div>
-        <h2>Quarter closed. Pick one improvement.</h2>
-        <p class="muted">The team catches up on two late entries while you decide.</p>
-        <div class="ups" id="cards"></div>
-      </div>
-
-      <!-- pause -->
-      <div class="overlay center" id="pausebox">
-        <h2>Paused</h2>
-        <p class="muted" id="pause-info"></p>
-        <button class="btn" id="resume" type="button">Resume</button>
-        <button class="btn ghost" id="quit" type="button">Quit to menu</button>
-      </div>
-    </div>
-    <div class="abilities">
-      <div class="focus"><span>Focus</span><div class="fbar"><i id="h-focus"></i></div></div>
-      <button type="button" class="ab" id="ab-ot" disabled><b>Overtime</b><small>slow motion · 1</small></button>
-      <button type="button" class="ab" id="ab-cp" disabled><b>Copilot</b><small id="cp-sub">locked</small></button>
-    </div>
+  <!-- ============ PANELS (between acts) ============ -->
+  <section id="s-panel" class="screen">
+    <div class="panel glass" id="panel"></div>
   </section>
 
   <!-- ============ END ============ -->
-  <section id="s-end" class="screen scroll">
-    <div class="eyebrow" id="e-eyebrow"></div>
-    <h2 id="e-title"></h2>
-    <p id="e-text"></p>
-    <div class="result">
-      <div><b id="e-score">0</b><span class="muted">points</span></div>
-      <div><b id="e-posted">0</b><span class="muted">entries posted</span></div>
-      <div><b id="e-combo">0</b><span class="muted">best combo</span></div>
+  <section id="s-end" class="screen">
+    <div class="end">
+      <div class="eyebrow" id="e-eyebrow"></div>
+      <h2 class="big" id="e-title">Books closed.</h2>
+      <div class="final glass">
+        <span>Final score</span>
+        <b id="e-score">0</b>
+        <div class="breakdown" id="e-breakdown"></div>
+      </div>
+      <div class="ranks" id="e-ranks"></div>
+      <p class="status" id="e-status"></p>
+
+      <div class="glass message">
+        <p class="lede">Manual work doesn't scale. <b>ESSA</b> fixes the process. <b>AI</b> multiplies what the team can do, as long as people know how to direct it and check its work.</p>
+        <div class="tbc">To be continued<span class="cursor"></span></div>
+        <p class="muted" id="e-season"></p>
+      </div>
+
+      <section class="glass board-box" aria-labelledby="lb-e">
+        <div class="board-head"><h2 id="lb-e">Leaderboard</h2></div>
+        <div class="tabs" role="tablist" data-board="end">
+          <button type="button" role="tab" data-cat="score">🏆 Score</button>
+          <button type="button" role="tab" data-cat="speed">⚡ Fastest</button>
+          <button type="button" role="tab" data-cat="review">🔍 Reviewer</button>
+        </div>
+        <p class="cat-desc" id="end-cat-desc"></p>
+        <ol class="board" id="board-end"></ol>
+      </section>
+
+      <button class="btn primary" id="again" type="button"><span>Play again</span></button>
+      <button class="btn ghost" id="home" type="button">Home</button>
     </div>
-    <div class="yearstars" id="e-stars"></div>
-    <div id="e-ach"></div>
-    <div class="tbc">To be continued</div>
-    <p class="lede">Keep going with ESSA: eliminate, simplify, standardize, automate. On top of that, get ready for AI in the end-to-end processes.</p>
-    <div>
-      <h3 id="e-board-title">High scores</h3>
-      <ol class="board" id="board-end"></ol>
-    </div>
-    <button class="btn" id="again" type="button">Play again</button>
-    <button class="btn ghost" id="tomenu" type="button">Menu</button>
   </section>
 
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <button id="snd" class="icon-btn" type="button" aria-pressed="true" aria-label="Music and sound">♪</button>
+
+  <div class="pausebox" id="pausebox" hidden>
+    <div class="glass">
+      <h2>Paused</h2>
+      <button class="btn primary" id="resume" type="button"><span>Resume</span></button>
+    </div>
+  </div>
 </main>
 <script src="game.js"></script>
 </body>
