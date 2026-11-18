@@ -8,7 +8,7 @@
   const CFG = {
     url: 'https://evdtpvbacpibeasrczhu.supabase.co',
     key: 'sb_publishable_Y1GmwdTaooG8yqFTTTZApQ_WVwIwyZz',
-    version: '3.1.0',
+    version: '3.2.0',
     dur: 90
   };
   const $ = id => document.getElementById(id);
@@ -122,6 +122,8 @@
         case 'bot':    this.tone(2200, .05, 'sine', .025); break;
         case 'late':   this.tone(140, .35, 'sine', .22, 0, 60); this.noise(.18, .05, 900, 200); break;
         case 'lock':   this.tone(300, .1, 'triangle', .05, 0, 240); break;
+        case 'unlock': this.tone(1047, .08, 'sine', .06); this.tone(1568, .12, 'sine', .05, t + .05); break;
+        case 'reject': this.tone(660, .08, 'triangle', .05); this.tone(990, .1, 'triangle', .04, t + .05); break;
         case 'ready':  this.tone(1568, .12, 'sine', .05); this.tone(2093, .18, 'sine', .04, t + .07); break;
         case 'power':  [523, 784, 1047, 1568].forEach((f, i) => this.tone(f, .35, 'triangle', .07, t + i * .05)); this.noise(.5, .05, 800, 5000); break;
         case 'elim':   this.noise(.6, .12, 5000, 300); this.tone(220, .5, 'sine', .12, 0, 80); break;
@@ -288,41 +290,64 @@
   let CW = 176, CH = 56;
   function layout(){
     const colW = Math.min(560, W) - 16; L.x0 = (W - colW) / 2; L.x1 = L.x0 + colW;
-    L.top = 92; L.line = H - 128;
+    L.top = 92; L.line = H - 138; measureTop();
     CW = Math.min(184, Math.floor(colW * .47)); CH = 56;
   }
+  // pts: points when posted by hand; charge: how much faster it charges the boosters; from: seconds before it first appears; w: how often
+  // the playing field starts just below the HUD, whatever height the HUD has on this screen
+  function measureTop(){
+    const hudEl = document.querySelector('#s-play .hud'), r = hudEl && hudEl.getBoundingClientRect();
+    if (r && r.height) L.top = Math.max(92, Math.round(r.bottom) + 6);
+  }
   const KIND = {
-    R: {label:'Journal entry', col:'#5fd6f5', subs:['Accrual · €12,400','Reclass · €3,950','Prepayment · €8,200','Payroll · €41,000','Freight · €6,730','Rent · €18,500','Depreciation · €9,100']},
-    C: {label:'Complex deal',  col:'#a78bfa', subs:['Revenue split · €4.1M','Deferred to acceptance','Multi-element · €2.7M','Lease · €1.3M']},
-    X: {label:'AI-ready',      col:'#8d98c9', subs:['Bank match · 412 lines','Invoice matching','IC reconciliation','Variance commentary','Accrual proposal']}
+    R:  {label:'Journal entry',     col:'#5fd6f5', pts:10, charge:1,   from:0,  w:50, subs:['Accrual · €12,400','Reclass · €3,950','Prepayment · €8,200','Payroll · €41,000','Freight · €6,730','Rent · €18,500','Depreciation · €9,100']},
+    C:  {label:'Complex deal',      col:'#a78bfa', pts:30, charge:1.6, from:8,  w:16, subs:['Revenue split · €4.1M','Deferred to acceptance','Multi-element · €2.7M','Lease · €1.3M']},
+    IC: {label:'Intercompany',      col:'#ffb84d', pts:20, charge:1.3, from:14, w:12, subs:['NL01 → US02 · €220k','DE04 → KR05 · €1.1M','TW03 → NL01 · €86k','US02 → CN07 · €540k']},
+    X:  {label:'AI-ready',          col:'#8d98c9', pts:0,  charge:0,   from:20, w:8,  subs:['Bank match · 412 lines','Invoice matching','IC reconciliation','Variance commentary','Accrual proposal']},
+    U:  {label:'Urgent',            col:'#ff4fa3', pts:25, charge:1.2, from:26, w:7,  subs:['Audit request · today','Board deck number','Auditor sample #27','CFO ask · before 10:00']},
+    P:  {label:'Awaiting approval', col:'#8fb6ff', pts:20, charge:1.2, from:36, w:8,  subs:['Above €1M · sign-off','Manager review','Controller approval']},
+    D:  {label:'Duplicate?',        col:'#ff5d73', pts:0,  charge:0,   from:46, w:6,  subs:['Same amount, same day','Posted last week too','Invoice #4471 again']}
   };
+  // shown once, the first time each kind appears
+  const NEWS = {
+    C:  'NEW · Complex deal: needs 3 taps',
+    IC: 'NEW · Intercompany: needs 2 taps',
+    X:  'AI-ready work is locked until January. Let it pass: not a miss.',
+    U:  'NEW · Urgent: falls fast. 1 tap',
+    P:  'NEW · Awaiting approval: wait until it says Approved, then tap',
+    D:  'NEW · Duplicate?: don\u2019t post it. Let it fall past the line'
+  };
+  const labelFor = it => it.k === 'P' ? (it.lock ? 'Awaiting approval' : 'Approved') : it.k === 'X' ? (aiUnlocked() ? 'AI agent' : 'AI-ready') : KIND[it.k].label;
 
   const sprites = new Map(), PAD = 22;
   function rr(c, x, y, w, h, r){ c.beginPath(); if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h); }
   function sprite(it){
-    const hit = it.hit > 0, open = it.k === 'X' && aiUnlocked(), key = [it.k, it.sub, it.taps, hit ? 1 : 0, open ? 1 : 0].join('|');
+    const hit = it.hit > 0, open = it.k === 'X' && aiUnlocked(), key = [it.k, it.sub, it.taps, hit ? 1 : 0, open ? 1 : 0, it.lock ? 1 : 0].join('|');
+    const dim = (it.k === 'X' && !open) || it.lock, icon = it.k === 'X' || it.lock || it.k === 'D';
     let s = sprites.get(key); if (s) return s;
     if (sprites.size > 300) sprites.clear();
     s = document.createElement('canvas'); s.width = Math.ceil((CW + PAD * 2) * DPR); s.height = Math.ceil((CH + PAD * 2) * DPR);
     const c = s.getContext('2d'), K = KIND[it.k], col = open ? '#4fe0a0' : K.col;
     c.scale(DPR, DPR); c.translate(PAD, PAD);
-    c.shadowColor = col; c.shadowBlur = hit ? 26 : it.k === 'X' ? 8 : 16;
-    rr(c, 0, 0, CW, CH, 12); c.fillStyle = hit ? 'rgba(30,44,110,.97)' : it.k === 'X' && !open ? 'rgba(14,18,44,.82)' : 'rgba(10,16,48,.94)'; c.fill();
+    c.shadowColor = col; c.shadowBlur = hit ? 26 : dim ? 8 : 16;
+    rr(c, 0, 0, CW, CH, 12); c.fillStyle = hit ? 'rgba(30,44,110,.97)' : dim ? 'rgba(14,18,44,.82)' : it.k === 'D' ? 'rgba(48,10,24,.94)' : 'rgba(10,16,48,.94)'; c.fill();
     c.shadowBlur = 0;
     const hl = c.createLinearGradient(0, 0, 0, CH); hl.addColorStop(0, 'rgba(255,255,255,.10)'); hl.addColorStop(.5, 'rgba(255,255,255,0)');
     rr(c, 0, 0, CW, CH, 12); c.fillStyle = hl; c.fill();
-    c.lineWidth = 1; c.strokeStyle = hit ? col : 'rgba(190,205,255,.22)';
-    if (it.k === 'X' && !open) c.setLineDash([4, 4]);
+    c.lineWidth = it.k === 'D' ? 1.5 : 1; c.strokeStyle = hit ? col : it.k === 'D' ? 'rgba(255,93,115,.85)' : 'rgba(190,205,255,.22)';
+    if (dim || it.k === 'D') c.setLineDash([4, 4]);
     rr(c, .5, .5, CW - 1, CH - 1, 12); c.stroke(); c.setLineDash([]);
     c.shadowColor = col; c.shadowBlur = 10; c.fillStyle = col; rr(c, 0, 10, 3, CH - 20, 2); c.fill(); c.shadowBlur = 0;
     c.textBaseline = 'alphabetic'; c.textAlign = 'left';
-    const right = it.k === 'X' ? 30 : 14 + it.taps * 12;
-    c.fillStyle = it.k === 'X' && !open ? '#c3c9ea' : '#f4f6ff'; c.font = '600 13px "IBM Plex Sans", sans-serif';
-    c.fillText(it.k === 'X' ? (open ? 'AI agent' : 'AI-ready') : K.label, 14, 23, CW - 20 - right);
-    c.font = '500 11px "IBM Plex Mono", monospace'; c.fillStyle = it.k === 'X' ? (open ? '#4fe0a0' : '#8d98c9') : '#a3acd9';
+    const right = icon ? 30 : 14 + it.taps * 12;
+    c.fillStyle = dim ? '#c3c9ea' : it.k === 'D' ? '#ffd6dc' : '#f4f6ff'; c.font = '600 13px "IBM Plex Sans", sans-serif';
+    c.fillText(labelFor(it), 14, 23, CW - 20 - right);
+    c.font = '500 11px "IBM Plex Mono", monospace';
+    c.fillStyle = it.k === 'X' ? (open ? '#4fe0a0' : '#8d98c9') : it.k === 'D' ? '#ff8a9a' : it.k === 'U' ? '#ff9fcf' : it.lock ? '#8d98c9' : '#a3acd9';
     c.fillText(it.sub, 14, 41, CW - 20 - right);
-    if (it.k === 'X'){
-      c.font = '13px sans-serif'; c.textAlign = 'center'; c.fillText(open ? '✦' : '🔒', CW - 17, 34);
+    if (icon){
+      c.font = '700 14px sans-serif'; c.textAlign = 'center'; c.fillStyle = it.k === 'D' ? '#ff5d73' : '#c3c9ea';
+      c.fillText(it.k === 'X' ? (open ? '✦' : '🔒') : it.k === 'D' ? '✕' : '⏳', CW - 17, 34);
     } else {
       for (let i = 0; i < it.taps; i++){ c.beginPath(); c.arc(CW - 14 - i * 12, 34, 4, 0, TAU); c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 6; c.fill(); }
       c.shadowBlur = 0;
@@ -332,11 +357,16 @@
 
   /* ================= game ================= */
   const POWERS = {
-    elim: {name:'Eliminate',   charge:.075, dur:8, hint:'Eliminate: work that adds no value disappears'},
-    simp: {name:'Simplify',    charge:.11,  dur:8, hint:'Simplify: complex deals need one tap'},
-    std:  {name:'Standardize', charge:.10,  dur:8, hint:'Standardize: neat lanes, everything slows down'},
-    auto: {name:'Automate',    charge:.09,  dur:8, hint:'Automate: a bot posts routine entries for you'},
-    ai:   {name:'AI',          charge:.06,  dur:6, hint:'AI: the full toolkit clears the screen'}
+    elim: {name:'Eliminate',   charge:.075, dur:8, effect:'removes almost half of the entries on screen, and 40% less new work for 8 s',
+           hint:'ELIMINATE · work that adds no value is gone'},
+    simp: {name:'Simplify',    charge:.11,  dur:8, effect:'complex deals and intercompany need just 1 tap for 8 s',
+           hint:'SIMPLIFY · complex deals and intercompany: 1 tap'},
+    std:  {name:'Standardize', charge:.10,  dur:8, effect:'entries line up in 3 lanes and fall 40% slower for 8 s',
+           hint:'STANDARDIZE · 3 lanes, 40% slower'},
+    auto: {name:'Automate',    charge:.09,  dur:8, effect:'a bot posts routine journal entries for you, 3 per second, for 8 s',
+           hint:'AUTOMATE · the bot posts routine journal entries'},
+    ai:   {name:'AI',          charge:.06,  dur:6, effect:'AI posts everything on screen for 6 s and rejects duplicates',
+           hint:'AI · posts everything on screen, rejects duplicates'}
   };
   const TIPS = [
     'Ask your AI assistant to explain a variance in three bullets (volume, price, one-offs) and to say what it is unsure about.',
@@ -356,7 +386,7 @@
   function newGame(name){
     const pw = {}; for (const k of Object.keys(POWERS)) pw[k] = {f:0, active:0, ready:false};
     G = {name, t:-2.6, score:0, items:[], fx:[], pw, playing:true, paused:false,
-      st:{manual:0, bot:0, ai:0, elim:0, missed:0, powers:0},
+      st:{manual:0, bot:0, ai:0, elim:0, missed:0, powers:0, dupRej:0}, seen:{}, bq:[],
       acc:.3, bot:0, aiTick:0, aiOffer:false, aiPreviewUsed:false, aiPreview:0, hints:{}, banner:null, xMsg:0, lineFlash:0, count:3,
       failed:null, playedMs:0};
   }
@@ -370,7 +400,7 @@
     if (!name){ show('s-home'); $('err').textContent = 'Enter your name so we can find you on the leaderboard.'; $('name').focus(); return; }
     $('err').textContent = ''; store.set('name', name);
     AU.start(); newGame(name);
-    show('s-play'); $('pause').hidden = false; setScene(.5, .8, .55, .35);
+    show('s-play'); $('pause').hidden = false; setScene(.5, .8, .55, .35); measureTop();
     AU.mood(1500, .75); AU.sfx('riser');
     renderPowers(true); hud(true);
   }
@@ -380,8 +410,17 @@
     G.score = Math.max(0, G.score + p);
     if (txt !== false) G.fx.push({x, y, txt:txt || '+' + fmt(p), col, life:.9});
   }
-  function banner(txt, col, dur){ G.banner = {txt, col:col || '#5fd6f5', t:dur || 2.6}; }
-  function hint(key, txt, col){ if (G.hints[key]) return; G.hints[key] = 1; banner(txt, col); }
+  // now: show immediately (booster feedback); first: jump the queue (a new kind of entry appears)
+  function banner(txt, col, dur, now, first){
+    const b = {txt, col:col || '#5fd6f5', t:dur || 2.8, dur:dur || 2.8};
+    if (now){
+      if (G.banner && G.banner.t > 1) G.bq.unshift({...G.banner, t:Math.max(1.6, G.banner.t)});   // don't lose what was showing
+      G.banner = b; return;
+    }
+    if (G.banner && G.banner.t > .5){ first ? G.bq.unshift(b) : G.bq.push(b); if (G.bq.length > 8) G.bq.length = 8; return; }
+    G.banner = b;
+  }
+  function hint(key, txt, col, dur, first){ if (G.hints[key]) return; G.hints[key] = 1; banner(txt, col, dur || 3.2, !!first, first); }
   function remove(it){ const i = G.items.indexOf(it); if (i >= 0) G.items.splice(i, 1); }
   const lanes = () => [L.x0 + 6, (L.x0 + L.x1 - CW) / 2, L.x1 - CW - 6];
 
@@ -390,9 +429,11 @@
     let x, tries = 0;
     do { x = std ? pick(lanes()) : rand(L.x0 + 6, L.x1 - CW - 6); tries++; }
     while (tries < 8 && G.items.some(o => o.y < L.top + CH * 1.3 && Math.abs(o.x - x) < CW * .9));
-    const it = {k, x, tx:x, y:L.top - CH - 6, hit:0};
-    it.taps = k === 'C' ? (G.pw.simp.active > 0 ? 1 : 3) : 1;
+    const it = {k, x, tx:x, y:L.top - CH - 6, hit:0, sp:k === 'U' ? 1.6 : 1, lock:k === 'P'};
+    const simp = G.pw.simp.active > 0;
+    it.taps = k === 'C' ? (simp ? 1 : 3) : k === 'IC' ? (simp ? 1 : 2) : 1;
     it.sub = pick(KIND[k].subs);
+    if (!G.seen[k]){ G.seen[k] = 1; if (NEWS[k] && !(k === 'X' && aiUnlocked())) hint('new_' + k, NEWS[k], k === 'D' ? '#ff5d73' : k === 'X' ? '#a78bfa' : KIND[k].col, 3.4, true); }
     if (G.t < 8 && !G.hints.tut && k === 'R') it.tut = true;
     G.items.push(it);
   }
@@ -400,12 +441,12 @@
   function postBy(it, who){
     const m = mult(), cx = it.x + CW / 2, cy = it.y + CH / 2;
     if (who === 'hand'){
-      const p = Math.round((it.k === 'C' ? 30 : 10) * m); G.st.manual++;
+      const p = Math.round(KIND[it.k].pts * m); G.st.manual++;
       addScore(p, cx, it.y, KIND[it.k].col); burst(cx, cy, 14, KIND[it.k].col, true); AU.sfx('post');
       for (const k of Object.keys(POWERS)){
         if (k === 'ai' && !aiUnlocked()) continue;
         const P = G.pw[k]; if (P.active > 0) continue;
-        P.f = Math.min(1, P.f + POWERS[k].charge * (it.k === 'C' ? 1.6 : 1));
+        P.f = Math.min(1, P.f + POWERS[k].charge * KIND[it.k].charge);
       }
       if (it.tut){ G.hints.tut = 1; }
     } else if (who === 'bot'){
@@ -416,15 +457,20 @@
     remove(it);
   }
 
-  /* ---------- first time right: one missed entry fails the close ---------- */
-  function failClose(it){
-    G.st.missed = 1;
-    G.failed = {it, wait:2.8, at:G.t};
-    G.aiPreview = 0; G.aiOffer = false; V.aiGlow = 0; G.banner = null;
+  function rejectDup(it, txt){
+    G.st.dupRej++; addScore(Math.round(10 * mult()), it.x + CW / 2, Math.min(it.y, L.line - 12), '#4fe0a0', txt || 'REJECTED ✓');
+    burst(it.x + CW / 2, it.y + CH / 2, 8, '#4fe0a0', false); AU.sfx('reject'); remove(it);
+  }
+
+  /* ---------- first time right: one missed entry or one posted duplicate fails the close ---------- */
+  function failClose(it, why){
+    G.st.missed = why === 'dup' ? 0 : 1; G.st.dupPosted = why === 'dup' ? 1 : 0;
+    G.failed = {it, wait:2.8, at:G.t, why:why || 'missed', y:why === 'dup' ? clamp(it.y, L.top, L.line - CH) : L.line - CH};
+    G.aiPreview = 0; G.aiOffer = false; V.aiGlow = 0; G.banner = null; G.bq = [];
     V.shake = .55; V.flash = .35; G.lineFlash = 1;
     AU.sfx('fail'); AU.mood(380, .6, .3);
-    burst(it.x + CW / 2, L.line - CH / 2, 30, '#ff5d73', false);
-    renderPowers(true);
+    burst(it.x + CW / 2, G.failed.y + CH / 2, 30, '#ff5d73', false);
+    remove(it); renderPowers(true);
   }
   const clockAt = t => { const s = Math.max(0, Math.floor(t)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
@@ -438,9 +484,9 @@
     const P = G.pw[k]; if (!P || P.f < 1 || P.active > 0) return;
     P.f = 0; P.active = POWERS[k].dur; G.st.powers++;
     AU.sfx(k === 'elim' ? 'elim' : k === 'ai' ? 'ai' : 'power'); V.flash = Math.max(V.flash, .25);
-    banner(POWERS[k].hint, k === 'ai' ? '#a78bfa' : '#4fe0a0', 2.2);
+    banner(POWERS[k].hint, k === 'ai' ? '#a78bfa' : '#4fe0a0', 2.2, true);
     if (k === 'elim'){
-      const pool = G.items.filter(it => it.k !== 'X' && it.y > L.top - CH).sort(() => Math.random() - .5);
+      const pool = G.items.filter(it => it.k !== 'X' && it.y > L.top - CH).sort(() => Math.random() - .5);   // duplicates and locked approvals can go too
       const n = Math.ceil(pool.length * .45);
       for (const it of pool.slice(0, n)){
         G.st.elim++; addScore(Math.round(5 * mult()), it.x + CW / 2, it.y, '#ffffff', 'ELIMINATED');
@@ -448,7 +494,7 @@
       }
       V.shake = .25;
     } else if (k === 'simp'){
-      for (const it of G.items) if (it.k === 'C') it.taps = Math.min(it.taps, 1);
+      for (const it of G.items) if (it.k === 'C' || it.k === 'IC') it.taps = Math.min(it.taps, 1);
     } else if (k === 'std'){
       const ln = lanes(); for (const it of G.items) it.tx = ln.reduce((a, b) => Math.abs(b - it.x) < Math.abs(a - it.x) ? b : a);
     } else if (k === 'ai'){
@@ -459,7 +505,7 @@
   function aiPreview(){
     G.aiOffer = false; G.aiPreviewUsed = true; G.aiPreview = 3; V.aiGlow = 1; V.flash = .6; G.st.powers++;
     AU.sfx('ai'); AU.mood(20000, .9, .2);
-    banner('AI PREVIEW · 3 seconds of the full toolkit', '#a78bfa', 3);
+    banner('AI PREVIEW · 3 seconds of the full toolkit', '#a78bfa', 3, true);
     renderPowers(true);
   }
 
@@ -467,7 +513,7 @@
     // countdown before the clock starts
     if (G.t < 0){
       const before = Math.ceil(-G.t); G.t += dt;
-      if (G.t >= 0){ AU.sfx('go'); AU.mood(2000, .78); hint('tut0', 'First time right: miss one entry and the close fails', '#5fd6f5'); }
+      if (G.t >= 0){ AU.sfx('go'); AU.mood(2000, .78); hint('tut0', 'First time right: miss one entry and the close fails', '#5fd6f5'); hint('tut1', 'Posting charges your ESSA boosters at the bottom. Tap one when it glows.', '#4fe0a0', 3.6); }
       else if (Math.ceil(-G.t) !== before) AU.sfx('count');
       return;
     }
@@ -478,6 +524,7 @@
       return;
     }
     G.t += dt; G.playedMs += dt * 1000;
+    if (G.t >= CFG.dur){ G.t = CFG.dur; finish(); return; }
     const p = clamp(G.t / CFG.dur, 0, 1), m = mult();
     // music opens up as the pressure builds
     if (!G.aiPreview && Math.floor(G.t) !== Math.floor(G.t - dt)) AU.mood(1800 + 16000 * p * p, .78);
@@ -488,8 +535,11 @@
     if (G.pw.elim.active > 0) rate *= .6;
     G.acc += rate * dt;
     while (G.acc >= 1){
-      G.acc--; const r = Math.random();
-      spawnCard(G.t > 20 && r < .1 ? 'X' : G.t > 8 && r < .32 ? 'C' : 'R');
+      G.acc--;
+      const avail = Object.keys(KIND).filter(k => G.t >= KIND[k].from);
+      let r = Math.random() * avail.reduce((a, k) => a + KIND[k].w, 0), kind = 'R';
+      for (const k of avail){ r -= KIND[k].w; if (r <= 0){ kind = k; break; } }
+      spawnCard(kind);
     }
 
     // power timers
@@ -497,22 +547,23 @@
       const P = G.pw[k];
       if (P.active > 0){ P.active -= dt; if (P.active <= 0){ P.active = 0; if (k === 'ai') V.aiGlow = 0; } }
       const ready = P.f >= 1 && P.active === 0 && (k !== 'ai' || aiUnlocked());
-      if (ready && !P.ready){ AU.sfx('ready'); hint('ready', POWERS[k].name + ' is charged: tap it!', '#5fd6f5'); }
+      if (ready && !P.ready){ AU.sfx('ready'); hint('ready_' + k, POWERS[k].name + ' ready: ' + POWERS[k].effect + '. Tap it!', '#5fd6f5', 4); }
       P.ready = ready;
     }
     // the one-time AI preview offer during the busiest part of season 1
     if (!aiUnlocked() && !G.aiPreviewUsed && !G.aiOffer && ((G.t > 30 && G.items.length >= 6) || G.t > 55)){
-      G.aiOffer = true; banner('AI PREVIEW AVAILABLE · tap the AI button', '#a78bfa', 3.2); AU.sfx('ready');
+      G.aiOffer = true; banner('AI PREVIEW AVAILABLE · tap the AI button', '#a78bfa', 3.2, true); AU.sfx('ready');
     }
     // nudge when manual work alone isn't enough
     if (G.items.filter(it => it.k !== 'X').length >= 6 && !G.st.powers && G.t > 15) hint('nudge', 'Manual alone can’t keep up. Use your ESSA powers.', '#ffb84d');
 
     // movement
-    const fallT = (5.0 - 1.6 * p) * (G.pw.std.active > 0 ? 1.6 : 1);
+    const fallT = (5.0 - 1.6 * p) / (G.pw.std.active > 0 ? .6 : 1);   // Standardize: 40% slower
     const vy = (L.line - L.top + CH) / fallT;
     for (let i = G.items.length - 1; i >= 0; i--){
       const it = G.items[i];
-      it.y += vy * dt; it.hit = Math.max(0, it.hit - dt);
+      it.y += vy * it.sp * dt; it.hit = Math.max(0, it.hit - dt);
+      if (it.lock && it.y > L.top + (L.line - L.top) * .5){ it.lock = false; it.sub = 'Post now'; it.hit = .15; AU.sfx('unlock'); }
       if (G.pw.std.active > 0 && it.tx != null) it.x = lerp(it.x, it.tx, 1 - Math.pow(.001, dt));
       // in season 2 an AI agent processes AI-ready work by itself
       if (it.k === 'X' && aiUnlocked() && it.y > L.top + (L.line - L.top) * .35){ postBy(it, 'ai'); continue; }
@@ -522,8 +573,10 @@
         hint('xpass', 'AI-ready work waits for AI in January. Not a miss.', '#a78bfa');
         if (G.t - G.xMsg > 6){ G.xMsg = G.t; G.fx.push({x:it.x + CW / 2, y:L.line - 12, txt:'AI could do this · January', col:'#a78bfa', life:1.2}); }
         burst(it.x + CW / 2, L.line, 6, '#8d98c9', false);
+      } else if (it.k === 'D'){
+        rejectDup(it, 'DUPLICATE REJECTED ✓');   // already taken off the screen above
       } else {
-        failClose(it); return;
+        failClose(it, 'missed'); return;
       }
     }
 
@@ -551,18 +604,19 @@
       G.aiTick -= dt;
       while (G.aiTick <= 0){
         G.aiTick += .07;
-        let best = null; for (const it of G.items) if (it.y > L.top - CH && (!best || it.y > best.y)) best = it;
-        if (best) postBy(best, 'ai'); else { G.aiTick = .07; break; }
+        let best = null; for (const it of G.items) if (it.y > L.top - CH && !it.lock && (!best || it.y > best.y)) best = it;
+        if (!best){ G.aiTick = .07; break; }
+        if (best.k === 'D') rejectDup(best, 'AI: DUPLICATE'); else postBy(best, 'ai');
       }
       if (Math.random() < .6) streak(rand(0, W), rand(-20, H * .3));
     }
 
     for (let i = G.fx.length - 1; i >= 0; i--){ const f = G.fx[i]; f.life -= dt; f.y -= 30 * dt; if (f.life <= 0) G.fx.splice(i, 1); }
     G.lineFlash = Math.max(0, G.lineFlash - dt);
-    if (G.banner){ G.banner.t -= dt; if (G.banner.t <= 0) G.banner = null; }
+    if (G.banner){ G.banner.t -= dt; if (G.banner.t <= 0) G.banner = G.bq.shift() || null; }
+    else if (G.bq.length) G.banner = G.bq.shift();
     V.aiGlow = Math.max(aiOn ? 1 : 0, V.aiGlow - dt);
 
-    if (G.t >= CFG.dur) finish();
   }
 
   function drawGame(){
@@ -581,6 +635,16 @@
       for (const x of lanes()){ g.strokeRect(x, L.top, CW, L.line - L.top); }
       g.restore();
     }
+    // banners sit behind the entries: a message may never hide an entry you must post
+    if (G.banner){
+      const b = G.banner, a = clamp(b.t * 2, 0, 1), y = L.top + 14;
+      g.globalAlpha = a; g.font = '600 13px "IBM Plex Sans", sans-serif';
+      const w = Math.min(W - 24, g.measureText(b.txt).width + 32);
+      g.fillStyle = 'rgba(6,10,34,.88)'; rr(g, W / 2 - w / 2, y, w, 32, 16); g.fill();
+      g.strokeStyle = b.col; g.lineWidth = 1; rr(g, W / 2 - w / 2 + .5, y + .5, w - 1, 31, 16); g.stroke();
+      g.fillStyle = b.col; g.textBaseline = 'middle'; g.fillText(b.txt, W / 2, y + 16.5, w - 20); g.textBaseline = 'alphabetic';
+      g.globalAlpha = 1;
+    }
     for (const it of G.items){
       g.drawImage(sprite(it), it.x - PAD, it.y - PAD, CW + PAD * 2, CH + PAD * 2);
       if (it.tut && !G.hints.tut){
@@ -596,31 +660,23 @@
     g.globalAlpha = 1;
 
     if (G.failed){
-      const it = G.failed.it, y = L.line - CH, pulse = .5 + .5 * Math.sin(V.t * 10);
+      const it = G.failed.it, y = G.failed.y, dup = G.failed.why === 'dup', pulse = .5 + .5 * Math.sin(V.t * 10);
+      const tag = dup ? 'DUPLICATE POSTED · DOUBLE COUNTED' : 'MISSED · MATERIALITY UNKNOWN';
       g.fillStyle = 'rgba(14,2,10,' + (.68 + .06 * pulse) + ')'; g.fillRect(0, 0, W, H);
       g.drawImage(sprite(it), it.x - PAD, y - PAD, CW + PAD * 2, CH + PAD * 2);
       g.strokeStyle = 'rgba(255,93,115,' + (.6 + .4 * pulse) + ')'; g.lineWidth = 3; rr(g, it.x - 3, y - 3, CW + 6, CH + 6, 14); g.stroke();
       g.textAlign = 'center'; g.font = '700 12px "IBM Plex Mono", monospace';
-      const lx = clamp(it.x + CW / 2, 130, W - 130), lw = g.measureText('MISSED · MATERIALITY UNKNOWN').width + 24;
+      const lx = clamp(it.x + CW / 2, 140, W - 140), lw = g.measureText(tag).width + 24;
       g.fillStyle = 'rgba(20,4,16,.95)'; rr(g, lx - lw / 2, y - 34, lw, 26, 13); g.fill();
-      g.fillStyle = '#ff5d73'; g.fillText('MISSED · MATERIALITY UNKNOWN', lx, y - 16.5);
+      g.fillStyle = '#ff5d73'; g.fillText(tag, lx, y - 16.5, W - 24);
       const bw = Math.min(W - 24, 440), by = H * .38 - 64;
       g.fillStyle = 'rgba(20,4,16,.92)'; rr(g, W / 2 - bw / 2, by, bw, 140, 18); g.fill();
       g.strokeStyle = 'rgba(255,93,115,.55)'; g.lineWidth = 1; rr(g, W / 2 - bw / 2 + .5, by + .5, bw - 1, 139, 18); g.stroke();
       g.shadowColor = 'rgba(255,93,115,.8)'; g.shadowBlur = 26; g.fillStyle = '#fff';
       g.font = '800 ' + Math.round(Math.min(56, W * .12)) + 'px "Sora", sans-serif'; g.fillText('Close failed', W / 2, H * .38);
       g.shadowBlur = 0; g.fillStyle = '#ffc2cb'; g.font = '500 15px "IBM Plex Sans", sans-serif';
-      g.fillText('One missed entry after ' + clockAt(G.failed.at) + '.', W / 2, H * .38 + 30, bw - 24);
+      g.fillText((dup ? 'A duplicate posted after ' : 'One missed entry after ') + clockAt(G.failed.at) + '.', W / 2, H * .38 + 30, bw - 24);
       g.fillText('First time right, or not at all.', W / 2, H * .38 + 52, bw - 24);
-    }
-    if (G.banner){
-      const b = G.banner, a = clamp(b.t * 2, 0, 1), y = L.top + 14;
-      g.globalAlpha = a; g.font = '600 13px "IBM Plex Sans", sans-serif';
-      const w = Math.min(W - 24, g.measureText(b.txt).width + 32);
-      g.fillStyle = 'rgba(6,10,34,.88)'; rr(g, W / 2 - w / 2, y, w, 32, 16); g.fill();
-      g.strokeStyle = b.col; g.lineWidth = 1; rr(g, W / 2 - w / 2 + .5, y + .5, w - 1, 31, 16); g.stroke();
-      g.fillStyle = b.col; g.textBaseline = 'middle'; g.fillText(b.txt, W / 2, y + 16.5, w - 20); g.textBaseline = 'alphabetic';
-      g.globalAlpha = 1;
     }
     if (G.t < 0){
       const n = Math.ceil(-G.t), k = -G.t - (n - 1);
@@ -642,7 +698,7 @@
     $('h-time').style.transform = 'scaleX(' + clamp(1 - Math.max(0, G.t) / CFG.dur, 0, 1) + ')';
     const s = G.st, posted = s.manual + s.bot + s.ai;
     const html = '<span>Posted <b>' + fmt(posted) + '</b></span>' + (G.failed ? '<span class="bad"><b>Close failed</b></span>' : '<span class="good">First time right <b>✓</b></span>') + '<span>×<b>' + mult().toFixed(1) + '</b></span>';
-    if (hudCache.stats !== html){ hudCache.stats = html; $('h-stats').innerHTML = html; }
+    if (hudCache.stats !== html){ hudCache.stats = html; $('h-stats').innerHTML = html; measureTop(); }
     renderPowers();
   }
   function renderPowers(force){
@@ -674,20 +730,41 @@
   cv.addEventListener('pointerdown', e => {
     if (!G || !G.playing || G.paused || G.t < 0 || G.failed) return;
     e.preventDefault();
-    const px = e.clientX, py = e.clientY, pad = 12; let best = null;
-    for (const it of G.items) if (px >= it.x - pad && px <= it.x + CW + pad && py >= it.y - pad && py <= it.y + CH + pad && (!best || it.y > best.y)) best = it;
+    const px = e.clientX, py = e.clientY;
+    const inside = (it, pad) => px >= it.x - pad && px <= it.x + CW + pad && py >= it.y - pad && py <= it.y + CH + pad;
+    // 1) the card you actually touch, topmost as drawn; 2) otherwise the nearest card within a small margin (never a duplicate)
+    let best = null;
+    for (let i = G.items.length - 1; i >= 0; i--) if (inside(G.items[i], 0)){ best = G.items[i]; break; }
+    if (!best){
+      let bd = Infinity;
+      for (const it of G.items) if (it.k !== 'D' && inside(it, 12)){ const d = Math.hypot(px - it.x - CW / 2, py - it.y - CH / 2); if (d < bd){ bd = d; best = it; } }
+    }
     if (!best) return;
     if (best.k === 'X'){
       AU.sfx('lock'); best.hit = .12;
       G.fx.push({x:best.x + CW / 2, y:best.y - 4, txt:'🔒 AI unlocks in January', col:'#a78bfa', life:1});
       return;
     }
+    if (best.lock){
+      AU.sfx('lock'); best.hit = .12;
+      G.fx.push({x:best.x + CW / 2, y:best.y - 4, txt:'⏳ Not approved yet', col:'#8fb6ff', life:.8});
+      return;
+    }
+    if (best.k === 'D'){ failClose(best, 'dup'); return; }
     best.taps--; best.hit = .12;
     if (best.taps <= 0) postBy(best, 'hand'); else AU.sfx('tap');
   });
 
   /* ---------- pause ---------- */
-  function pause(){ if (!G || !G.playing || G.paused) return; G.paused = true; $('pausebox').hidden = false; if (!AU.el.paused) AU.el.pause(); }
+  function pause(){
+    if (!G || !G.playing || G.paused) return; G.paused = true;
+    // quick reference: the same booster explanation as on the start screen
+    const help = $('pause-help'); help.textContent = '';
+    const list = document.querySelector('#s-home .boosters').cloneNode(true);
+    list.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+    help.appendChild(list);
+    $('pausebox').hidden = false; if (!AU.el.paused) AU.el.pause();
+  }
   function resume(){ if (!G || !G.paused) return; G.paused = false; $('pausebox').hidden = true; if (AU.on) AU.start(); }
   $('pause').addEventListener('click', pause);
   $('resume').addEventListener('click', resume);
@@ -732,7 +809,7 @@
     const bonus = flawless ? Math.round(G.score * .5) : 0; G.score += bonus;
     const playedMs = flawless ? CFG.dur * 1000 : Math.round(G.playedMs);
     const run = {p_player:PLAYER, p_name:G.name, p_mode:modeFor(), p_score:Math.round(G.score), p_version:CFG.version,
-      p_stats:{duration_ms:playedMs, posted, manual:s.manual, bot:s.bot, ai:s.ai, eliminated:s.elim, missed:s.missed, flawless:flawless ? 1 : 0, bonus, powers:s.powers, preview:G.aiPreviewUsed ? 1 : 0}};
+      p_stats:{duration_ms:playedMs, posted, manual:s.manual, bot:s.bot, ai:s.ai, eliminated:s.elim, missed:s.missed, dup_rejected:s.dupRej, dup_posted:s.dupPosted || 0, flawless:flawless ? 1 : 0, bonus, powers:s.powers, preview:G.aiPreviewUsed ? 1 : 0}};
     AU.sfx('end'); AU.mood(3200, .7); setScene(.7, 1, 1, .8);
 
     $('e-eyebrow').textContent = G.name + ' · ' + (aiUnlocked() ? 'Season 2 · AI unlocked' : 'Season 1 · ESSA');
@@ -744,10 +821,12 @@
     [['score', '🏆 Score', fmt(run.p_score)], ['entries', '📒 Entries', fmt(posted) + ' posted']].forEach(([c, t, v]) => {
       const d = el('div'); d.dataset.cat = c; d.append(el('small', '', t), el('b', '', '–'), el('span', '', v)); rk.appendChild(d); });
     $('e-tip').textContent = pick(TIPS);
-    const missedTxt = G.failed ? (G.failed.it.k === 'C' ? 'Complex deal' : 'Journal entry') + ' \u00b7 ' + G.failed.it.sub : '';
+    const missedTxt = G.failed ? labelFor(G.failed.it) + ' \u00b7 ' + G.failed.it.sub : '';
     const head = flawless
       ? 'You closed <b>' + fmt(posted) + '</b> entries in 90 seconds without missing a single one: <b>+' + fmt(bonus) + '</b> flawless bonus. '
-      : 'You missed one entry (<b>' + missedTxt + '</b>) ' + (posted ? 'after ' + fmt(posted) + ' posted' : 'before posting anything') + '. You don\u2019t know whether it was material until it is too late. ';
+      : G.failed.why === 'dup'
+        ? 'You posted a duplicate (<b>' + missedTxt + '</b>) ' + (posted ? 'after ' + fmt(posted) + ' correct postings' : 'as your first posting') + '. Posting something twice is just as wrong as missing it. '
+        : 'You missed one entry (<b>' + missedTxt + '</b>) ' + (posted ? 'after ' + fmt(posted) + ' posted' : 'before posting anything') + '. You don\u2019t know whether it was material until it is too late. ';
     if (aiUnlocked()){
       $('e-lede').innerHTML = head + (s.ai ? '<b>' + fmt(s.ai) + '</b> entries were handled by AI. ' : '') + 'ESSA fixes the process; <b>AI</b> multiplies what the team can do.';
       $('e-tbc').firstChild.textContent = 'The future of the close';
@@ -820,7 +899,9 @@
   function applySeason(){
     const s2 = aiUnlocked();
     $('h-eyebrow').textContent = 'Finance Operations · ' + (s2 ? 'Season 2 · AI unlocked' : 'Season 1') + (TEST || PREVIEW_S2 ? ' · test' : '');
-    $('pi-ai').classList.toggle('open', s2); $('pi-ai-t').textContent = s2 ? 'Unlocked' : 'January';
+    $('pi-ai').classList.toggle('open', s2);
+    $('pi-ai-t').textContent = s2 ? 'Unlocked for season 2. It charges as you post; then for 6 seconds AI posts everything on screen and rejects duplicates. AI-ready work is handled by an AI agent.'
+      : 'Locked until January. Once per game, when it gets busy, you can try a 3-second preview.';
   }
   async function loadSeason(){
     try {
@@ -846,5 +927,5 @@
   applySeason();
   last = performance.now(); requestAnimationFrame(frame);
   loadBoard('home'); loadSeason(); flushPending();
-  window.CTB = {state:() => G, view:V, usePower};
+  window.CTB = {state:() => G, view:V, usePower, layout:() => ({...L})};
 })();

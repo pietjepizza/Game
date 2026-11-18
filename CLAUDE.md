@@ -5,6 +5,9 @@ Browser game for a Finance Operations team (~125 people), handed out before Chri
 ## Message the game must carry
 Volume keeps growing; you cannot scale it with people. ESSA (eliminate, simplify, standardize, automate) is the foundation to fix processes; AI is the extra enabler on top. Goal: people become AI-native and upskilled in using AI in daily work, so the team can handle more volume.
 
+## Status (v3.2)
+Seven entry kinds (KIND in game.js, each with points, booster charge, first-appearance time and weight): R journal entry (1 tap), C complex (3), IC intercompany (2), X AI-ready (locked, may pass), U urgent (1 tap, falls 1.6x), P awaiting approval (locked until halfway, then 1 tap), D duplicate (must NOT be posted: tapping it fails the close, letting it pass = +10). Each new kind gets an immediate on-screen explanation. Boosters explained: "How it works" panel on home (boosters + entries), effect label on each button, first-ready message per booster, booster list in pause. Taps hit the topmost card actually touched; duplicates never via the tap margin. Banners draw behind entries. Deadline wins at 90 s. Playfield top follows the HUD height.
+
 ## Status (v3.1)
 First time right: one missed journal entry or complex deal fails the close immediately (freeze + "Close failed · materiality unknown", then end screen). AI-ready cards never fail the close. Surviving 90 s = "Flawless close" + 50% bonus. Score is still saved for failed closes (duration = time played; server minimum 3 s, resubmit window 5 s). Gentler start: rate .8→3.8/s, fall 5.0→3.4 s. AI preview offered from 30 s when busy (or at 55 s).
 

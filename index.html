@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=3.1.0">
+<link rel="stylesheet" href="style.css?v=3.2.0">
 </head>
 <body>
 <canvas id="world" aria-hidden="true"></canvas>
@@ -28,21 +28,39 @@
       </h1>
       <p class="tagline rv" style="--d:1.6s">Volume grows every year. The team doesn't.<br>90 seconds, first time right: miss one entry and the close fails.</p>
 
-      <div class="powers-intro rv" style="--d:1.9s">
-        <div class="pi"><b>E</b><span>Eliminate</span></div>
-        <div class="pi"><b>S</b><span>Simplify</span></div>
-        <div class="pi"><b>S</b><span>Standardize</span></div>
-        <div class="pi"><b>A</b><span>Automate</span></div>
-        <div class="pi ai" id="pi-ai"><b>AI</b><span id="pi-ai-t">January</span></div>
-      </div>
-
       <form id="f-start" class="glass start rv" style="--d:2.2s" action="#" onsubmit="return false" novalidate>
         <label for="name">Your name on the leaderboard</label>
         <input id="name" maxlength="24" autocomplete="name" placeholder="First name + last initial">
         <div class="err" id="err" role="alert"></div>
         <button class="btn primary" type="submit"><span>Start the close</span></button>
-        <p class="fine">Tap every entry before it hits the close line. You can’t tell which one is material, so you can’t miss any. Fill the ESSA power buttons by posting, then use them. Sound on.</p>
+        <p class="fine">Tap every entry before it hits the close line. You can’t tell which one is material, so you can’t miss any. Sound on.</p>
       </form>
+
+      <section class="glass howto rv" style="--d:2.3s" aria-labelledby="ht-h">
+        <h2 id="ht-h">How it works</h2>
+        <p class="rule"><b>First time right.</b> Miss one entry, or post a duplicate, and the close fails. Survive all 90 seconds for a 50% flawless bonus. Entries are worth more as the clock runs.</p>
+
+        <h3>ESSA boosters</h3>
+        <ul class="boosters">
+          <li><b>E</b><div><strong>Eliminate</strong><span>Removes almost half of the entries on screen at once, and 40% less new work arrives for 8 seconds.</span></div></li>
+          <li><b>S</b><div><strong>Simplify</strong><span>For 8 seconds, complex deals and intercompany entries need just 1 tap.</span></div></li>
+          <li><b>S</b><div><strong>Standardize</strong><span>For 8 seconds, entries line up in 3 lanes and fall 40% slower.</span></div></li>
+          <li><b>A</b><div><strong>Automate</strong><span>For 8 seconds, a bot posts routine journal entries for you, 3 per second.</span></div></li>
+          <li class="ai" id="pi-ai"><b>AI</b><div><strong>AI</strong><span id="pi-ai-t">Locked until January. Once per game, when it gets busy, you can try a 3-second preview.</span></div></li>
+        </ul>
+        <p class="fine">Boosters charge as you post entries by hand; bigger entries charge them faster. When a booster glows, tap it (or press 1 to 4).</p>
+
+        <h3>Entries</h3>
+        <div class="legend">
+          <div class="row"><div class="mini" style="--c:#5fd6f5"><b>Journal entry</b><small>Accrual · €12,400</small></div><p>Tap once.</p></div>
+          <div class="row"><div class="mini" style="--c:#a78bfa"><b>Complex deal</b><small>Lease · €1.3M</small></div><p>Tap 3 times.</p></div>
+          <div class="row"><div class="mini" style="--c:#ffb84d"><b>Intercompany</b><small>NL01 → US02 · €220k</small></div><p>Tap twice.</p></div>
+          <div class="row"><div class="mini" style="--c:#ff4fa3"><b>Urgent</b><small>Audit request · today</small></div><p>Falls fast. Tap once.</p></div>
+          <div class="row"><div class="mini dim" style="--c:#8fb6ff"><b>Awaiting approval ⏳</b><small>Manager review</small></div><p>Wait until it says <i>Approved</i> (halfway down), then tap.</p></div>
+          <div class="row"><div class="mini dup" style="--c:#ff5d73"><b>Duplicate? ✕</b><small>Same amount, same day</small></div><p><b>Don’t post it.</b> Let it fall past the line.</p></div>
+          <div class="row"><div class="mini dim" style="--c:#8d98c9"><b>AI-ready 🔒</b><small>Invoice matching</small></div><p>Locked until January. Let it pass: it is not a miss.</p></div>
+        </div>
+      </section>
 
       <section class="glass board-box rv" style="--d:2.4s" aria-labelledby="lb-h">
         <div class="board-head">
@@ -68,11 +86,11 @@
       <div class="hud-stats" id="h-stats"></div>
     </div>
     <div class="powerbar" id="powerbar">
-      <button type="button" class="pw" data-p="elim"><i></i><b>E</b><span>Eliminate</span></button>
-      <button type="button" class="pw" data-p="simp"><i></i><b>S</b><span>Simplify</span></button>
-      <button type="button" class="pw" data-p="std"><i></i><b>S</b><span>Standardize</span></button>
-      <button type="button" class="pw" data-p="auto"><i></i><b>A</b><span>Automate</span></button>
-      <button type="button" class="pw ai locked" data-p="ai"><i></i><b>AI</b><span id="pw-ai-t">Jan</span></button>
+      <button type="button" class="pw" data-p="elim" aria-label="Eliminate: removes almost half of the entries on screen"><i></i><b>E</b><span>Eliminate</span><small>clear 45%</small></button>
+      <button type="button" class="pw" data-p="simp" aria-label="Simplify: complex deals and intercompany need 1 tap"><i></i><b>S</b><span>Simplify</span><small>1 tap</small></button>
+      <button type="button" class="pw" data-p="std" aria-label="Standardize: 3 lanes, 40% slower"><i></i><b>S</b><span>Standardize</span><small>slower</small></button>
+      <button type="button" class="pw" data-p="auto" aria-label="Automate: a bot posts routine entries"><i></i><b>A</b><span>Automate</span><small>bot posts</small></button>
+      <button type="button" class="pw ai locked" data-p="ai" aria-label="AI: locked until January"><i></i><b>AI</b><span>Agent</span><small id="pw-ai-t">Jan</small></button>
     </div>
   </section>
 
@@ -121,6 +139,7 @@
   <div class="pausebox" id="pausebox" hidden>
     <div class="glass">
       <h2>Paused</h2>
+      <div class="pause-help" id="pause-help"></div>
       <button class="btn primary" id="resume" type="button"><span>Resume</span></button>
       <button class="btn ghost" id="quit" type="button">Quit to home</button>
     </div>
@@ -135,6 +154,6 @@
     f.textContent = 'Something went wrong (' + (e.message || 'script error') + '). Please reload the page with Ctrl+F5 / Cmd+Shift+R, or try another browser.';
   });
 </script>
-<script src="game.js?v=3.1.0"></script>
+<script src="game.js?v=3.2.0"></script>
 </body>
 </html>

@@ -226,3 +226,43 @@ input::placeholder{color:#6f78a8}
 #pause[hidden]{display:none}
 .ranks{grid-template-columns:repeat(2,1fr)}
 @media (prefers-reduced-motion:reduce){.pw.ready,.pw.ai.offer{animation:none}}
+
+/* ---------- v3.2: how it works, booster effects ---------- */
+.howto{padding:18px 18px 16px;display:flex;flex-direction:column;gap:12px}
+.howto h2{font:700 20px var(--display)}
+.howto h3{margin:6px 0 0;font:600 11px var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--cyan)}
+.howto .rule{font-size:14px;color:#dfe5ff}
+.howto .rule b{color:#ff8a9a}
+.boosters{list-style:none;padding:0;display:grid;gap:10px}
+.boosters li{display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:start}
+.boosters li>b{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font:800 18px var(--display);color:var(--cyan);background:rgba(95,214,245,.1);border:1px solid var(--line-2)}
+.boosters li.ai>b{color:var(--violet);background:rgba(167,139,250,.12);border-color:rgba(167,139,250,.45);font-size:15px;position:relative}
+.boosters li.ai>b::after{content:"🔒";position:absolute;right:-6px;bottom:-6px;font-size:12px}
+.boosters li.ai.open>b::after{content:""}
+.boosters strong{display:block;font:700 15px var(--display)}
+.boosters span{display:block;font-size:13px;color:var(--muted);line-height:1.4}
+.mini.dim{background:rgba(14,18,44,.8);border-style:dashed;border-left-style:solid;color:#c3c9ea}
+.mini.dup{background:rgba(48,10,24,.9);border:1px dashed rgba(255,93,115,.85);border-left:4px solid var(--c);color:#ffd6dc}
+.legend p b{color:#ff8a9a}
+.pw{height:84px}
+.pw small{position:relative;font:500 8.5px var(--mono);color:var(--muted);max-width:100%;padding:0 3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.9}
+.pw.ready small,.pw.active small{color:var(--text)}
+.pausebox .glass{width:min(440px,calc(100% - 24px));max-height:calc(100% - 24px);overflow-y:auto;text-align:left}
+.pausebox h2{text-align:center}
+.pause-help .boosters span{font-size:12.5px}
+
+/* v3.2 fit: readable labels on 320-400px phones */
+.pw span{font:600 10px var(--body);letter-spacing:0;text-transform:none}
+.pw small{font:500 9.5px var(--body);letter-spacing:0}
+.howto .legend .row{grid-template-columns:minmax(0,190px) 1fr}
+.howto .mini small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+@media (max-width:420px){.howto .legend .row{grid-template-columns:minmax(0,170px) 1fr}}
+.pw span{font-size:9.5px}
+@media (max-width:380px){
+  .powerbar{gap:5px}
+  .pw span{display:none}
+  .pw b{font-size:20px}
+  .pw small{font-size:9px;padding:0 1px}
+}
+@media (max-width:420px) and (min-width:381px){.pw span{font-size:8.8px;letter-spacing:-.015em;padding:0 1px}}
+@media (max-width:380px){.pw small{font-size:8.6px;letter-spacing:-.02em;padding:0}}
