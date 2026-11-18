@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=2.0.1">
+<link rel="stylesheet" href="style.css?v=2.0.2">
 </head>
 <body>
 <canvas id="world" aria-hidden="true"></canvas>
@@ -34,7 +34,7 @@
         <li><b>03</b><span>AI-native</span><small>direct the AI, check its work</small></li>
       </ol>
 
-      <form id="f-start" class="glass start rv" style="--d:2.2s" novalidate>
+      <form id="f-start" class="glass start rv" style="--d:2.2s" action="#" onsubmit="return false" novalidate>
         <label for="name">Your name on the leaderboard</label>
         <input id="name" maxlength="24" autocomplete="name" placeholder="First name + last initial">
         <div class="err" id="err" role="alert"></div>
@@ -118,6 +118,15 @@
     </div>
   </div>
 </main>
-<script src="game.js?v=2.0.1"></script>
+<div class="fatal" id="fatal" hidden></div>
+<script>
+  // Shows a readable message instead of failing silently (helps players report problems)
+  window.addEventListener('error', function (e) {
+    var f = document.getElementById('fatal'); if (!f) return;
+    f.hidden = false;
+    f.textContent = 'Something went wrong (' + (e.message || 'script error') + '). Please reload the page with Ctrl+F5 / Cmd+Shift+R, or try another browser.';
+  });
+</script>
+<script src="game.js?v=2.0.2"></script>
 </body>
 </html>

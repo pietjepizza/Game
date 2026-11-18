@@ -184,3 +184,5 @@ input::placeholder{color:#6f78a8}
 @media (prefers-reduced-motion:reduce){
   .title span,.rv,.panel,.btn.primary::after,.cursor{animation:none}
 }
+.fatal{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:50;background:#2a0b18;border:1px solid var(--red);color:#ffd6dc;border-radius:12px;padding:12px 14px;font-size:14px;pointer-events:auto}
+.fatal[hidden]{display:none}

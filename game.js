@@ -8,7 +8,7 @@
     url: 'https://evdtpvbacpibeasrczhu.supabase.co',
     key: 'sb_publishable_Y1GmwdTaooG8yqFTTTZApQ_WVwIwyZz',
     mode: /[?&]test\b/.test(location.search) ? 'test' : 'v2',   // ?test keeps trial runs off the real leaderboard
-    version: '2.0.0'
+    version: '2.0.2'
   };
   const $ = id => document.getElementById(id);
   const TAU = Math.PI * 2;
@@ -801,6 +801,10 @@
 
   /* ================= start ================= */
   function startGame(){
+    try { startGameInner(); }
+    catch(e){ console.error(e); const f = $('fatal'); f.hidden = false; f.textContent = 'The game could not start (' + e.message + '). Please reload the page with Ctrl+F5 / Cmd+Shift+R, or try another browser.'; }
+  }
+  function startGameInner(){
     const name = $('name').value.trim().replace(/\s+/g, ' ').slice(0, 24);
     if (!name){ show('s-home'); $('err').textContent = 'Enter your name so we can find you on the leaderboard.'; $('name').focus(); return; }
     $('err').textContent = ''; store.set('name', name);
