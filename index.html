@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=3.3.0">
+<link rel="stylesheet" href="style.css?v=3.4.0">
 </head>
 <body>
 <canvas id="world" aria-hidden="true"></canvas>
@@ -18,8 +18,22 @@
 
 <main id="app">
 
+  <!-- ============ INTRO ============ -->
+  <section id="s-intro" class="screen on">
+    <div class="gate" id="gate">
+      <div class="eyebrow">Finance Operations · Season 1</div>
+      <button type="button" class="enter" id="enter" aria-label="Begin the intro">
+        <span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span>
+        <b>▶</b>
+      </button>
+      <p class="gate-title">Close the Books</p>
+      <p class="gate-hint">Tap to begin · sound on 🔊</p>
+    </div>
+    <button type="button" class="skip" id="skip" hidden>Skip intro ›</button>
+  </section>
+
   <!-- ============ HOME ============ -->
-  <section id="s-home" class="screen on">
+  <section id="s-home" class="screen">
     <div class="home">
       <div class="eyebrow rv" style="--d:.2s" id="h-eyebrow">Finance Operations · Season 1</div>
       <h1 class="title" aria-label="Close the Books">
@@ -171,6 +185,6 @@
     f.textContent = 'Something went wrong (' + (e.message || 'script error') + '). Please reload the page with Ctrl+F5 / Cmd+Shift+R, or try another browser.';
   });
 </script>
-<script src="game.js?v=3.3.0"></script>
+<script src="game.js?v=3.4.0"></script>
 </body>
 </html>

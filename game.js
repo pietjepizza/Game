@@ -8,7 +8,7 @@
   const CFG = {
     url: 'https://evdtpvbacpibeasrczhu.supabase.co',
     key: 'sb_publishable_Y1GmwdTaooG8yqFTTTZApQ_WVwIwyZz',
-    version: '3.3.0',
+    version: '3.4.0',
     dur: 90
   };
   const $ = id => document.getElementById(id);
@@ -33,7 +33,7 @@
   let PLAYER = store.get('player', null); if (!PLAYER){ PLAYER = uuid(); store.set('player', PLAYER); }
 
   const QS = location.search;
-  const TEST = /[?&]test\b/.test(QS), PREVIEW_S2 = /[?&]s2\b/.test(QS);
+  const TEST = /[?&]test\b/.test(QS), PREVIEW_S2 = /[?&]s2\b/.test(QS), SKIP_INTRO = /[?&]skipintro\b/.test(QS);
   let SEASON = store.get('season', 's1');
   const modeFor = () => (TEST || PREVIEW_S2) ? 'test' : SEASON;
   const aiUnlocked = () => PREVIEW_S2 || SEASON === 's2';
@@ -124,6 +124,9 @@
         case 'lock':   this.tone(300, .1, 'triangle', .05, 0, 240); break;
         case 'unlock': this.tone(1047, .08, 'sine', .06); this.tone(1568, .12, 'sine', .05, t + .05); break;
         case 'reject': this.tone(660, .08, 'triangle', .05); this.tone(990, .1, 'triangle', .04, t + .05); break;
+        case 'hum':    this.tone(55, 3.6, 'sine', .16); this.tone(82.4, 3.6, 'sine', .07); break;
+        case 'tick':   this.tone(2400, .025, 'sine', .025); break;
+        case 'suck':   this.noise(.55, .12, 6000, 150); this.tone(440, .5, 'sine', .06, 0, 60); break;
         case 'clutch': this.tone(1760, .07, 'square', .04); this.tone(2637, .12, 'triangle', .05, t + .04); break;
         case 'streak': [1047, 1319, 1568].forEach((f, i) => this.tone(f, .14, 'triangle', .05, t + i * .04)); break;
         case 'spike':  this.noise(2.6, .08, 200, 4000); [220, 220, 220].forEach((f, i) => this.tone(f, .18, 'square', .05, t + i * .5)); break;
@@ -151,7 +154,7 @@
   const cv = $('world'), g = cv.getContext('2d');
   let W = 0, H = 0, DPR = 1, gridC = null;
   const V = {
-    t:0, beam:0, flash:0, shake:0, aiGlow:0,
+    t:0, beam:0, flash:0, shake:0, aiGlow:0, light:1, beamSpeed:1 / 1.1, ring:-1,
     cur:{y:.5, r:.9, a:1, i:.55}, tgt:{y:.5, r:.9, a:1, i:.55},
     dust:[], parts:[], streaks:[]
   };
@@ -222,6 +225,11 @@
     body.addColorStop(0, '#24357f'); body.addColorStop(1, '#070b26'); g.fillStyle = body; g.fill();
     g.save(); g.clip();
     g.save(); g.rotate(rot); g.drawImage(gridC, -R, -R, R * 2, R * 2); g.restore();
+    if (V.light < 1){
+      const rr0 = R * V.light * 1.08;
+      g.fillStyle = body; g.beginPath(); g.arc(0, 0, R + 2, 0, TAU); g.arc(0, 0, Math.max(0, rr0), 0, TAU, true); g.fill();
+      if (V.light > 0){ g.save(); g.globalCompositeOperation = 'lighter'; g.strokeStyle = 'rgba(150,230,255,.9)'; g.lineWidth = 10; g.beginPath(); g.arc(0, 0, rr0, 0, TAU); g.stroke(); g.restore(); }
+    }
     if (g.createConicGradient){
       const cg = g.createConicGradient(rot * 2.2, 0, 0), hs = [190, 260, 320, 30, 90, 160, 190];
       hs.forEach((h, i) => cg.addColorStop(i / (hs.length - 1), 'hsla(' + h + ',95%,62%,1)'));
@@ -237,6 +245,15 @@
     g.restore(); g.restore();
   }
 
+  function drawRing(){
+    if (V.ring < 0) return;
+    const C = waferC(), R = waferR(), k = V.ring, r = R * (.25 + k * 2.6);
+    g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = Math.max(0, 1 - k);
+    g.strokeStyle = 'rgba(160,230,255,1)'; g.lineWidth = 3 + 10 * (1 - k);
+    g.beginPath(); g.ellipse(C.x, C.y, r, r * .36, 0, 0, TAU); g.stroke();
+    g.strokeStyle = 'rgba(167,139,250,1)'; g.lineWidth = 2; g.beginPath(); g.ellipse(C.x, C.y, r * .8, r * .8 * .36, 0, 0, TAU); g.stroke();
+    g.restore();
+  }
   function drawBeam(){
     if (V.beam <= 0) return;
     const C = waferC(), R = waferR(), I = Math.min(1.4, V.cur.i + V.aiGlow), len = C.y * Math.min(1, V.beam), pulse = reduced ? 0 : Math.sin(V.t * 9) * 1.5;
@@ -825,21 +842,134 @@
     const dt = clamp((now - last) / 1000 || 0, 0, .05); last = now;
     V.t += dt;
     const k = 1 - Math.pow(.02, dt);
-    for (const p of ['y', 'r', 'a', 'i']) V.cur[p] = lerp(V.cur[p], V.tgt[p], k);
-    if (V.beam > 0 && V.beam < 1){ V.beam = Math.min(1, V.beam + dt / 1.1); if (V.beam >= 1){ V.flash = 1; AU.sfx('impact'); } }
+    if (!INTRO.on) for (const p of ['y', 'r', 'a', 'i']) V.cur[p] = lerp(V.cur[p], V.tgt[p], k);
+    if (V.beam > 0 && V.beam < 1){ V.beam = Math.min(1, V.beam + dt * V.beamSpeed); if (V.beam >= 1){ V.flash = 1; AU.sfx('impact'); } }
+    if (V.ring >= 0){ V.ring += dt / 1.3; if (V.ring > 1) V.ring = -1; }
+    if (INTRO.on) updateIntro(dt);
     V.flash = Math.max(0, V.flash - dt * 1.4); V.shake = Math.max(0, V.shake - dt);
 
     if (G && G.playing && !G.paused) update(dt);
 
     const sh = V.shake > 0 && !reduced;
     g.save(); if (sh) g.translate(rand(-1, 1) * V.shake * 12, rand(-1, 1) * V.shake * 12);
-    drawBackground(dt); drawWafer(); drawBeam(); drawParticles(dt);
+    drawBackground(dt); drawWafer(); drawRing(); drawBeam(); drawParticles(dt);
+    if (INTRO.on) drawIntro();
     if (G && G.playing) drawGame();
     g.restore();
     if (V.flash > 0){ g.fillStyle = 'rgba(200,235,255,' + V.flash * .5 + ')'; g.fillRect(0, 0, W, H); }
     if (G && G.playing) hud();
     requestAnimationFrame(frame);
   }
+
+  /* ================= cinematic intro ================= */
+  // gate (tap to begin, unlocks sound) -> data stream with VOLUME vs TEAM counters -> implosion -> EUV beam impact -> wafer wakes up -> home
+  const INTRO = {on:false, t:0, words:[], acc:0, absorbed:0, lastTick:0, impact:false, done:false};
+  const WORDS = ['€12,400','JE-4471','ACCRUAL','€1.3M','IC NL01→US02','RECLASS','€86k','PAYROLL','€41,000','DEFERRAL','FX REVAL','€2.7M','VAT','SIGN-OFF',
+    'LEASE','DUPLICATE?','BANK MATCH','€540k','PREPAYMENT','€9,100','PROVISION','JE-0932','€220k','ELIMINATION','FREIGHT','€6,730','CUT-OFF','AUDIT REQ'];
+  const T_STREAM = .6, T_IMPLODE = 3.4, T_IMPACT = 3.9, T_END = 5.4;
+  const easeOut = x => 1 - Math.pow(1 - x, 3);
+  const easeBack = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+  function startIntro(){
+    if (INTRO.on || INTRO.done) return;
+    Object.assign(INTRO, {on:true, t:0, words:[], acc:0, absorbed:0, lastTick:0, impact:false});
+    $('gate').classList.add('away'); $('skip').hidden = false;
+    AU.start(); AU.mood(260, .8, .05); AU.sfx('hum');
+    V.beam = 0; V.light = 0; V.cur = {y:.5, r:.55, a:.18, i:.2};
+  }
+  function updateIntro(dt){
+    const I = INTRO; I.t += dt; const t = I.t, C = waferC();
+    if (t >= T_STREAM && t - dt < T_STREAM){ AU.mood(1700, .82, 1.1); AU.sfx('riser'); }
+    // the stream of entries: more and faster as volume grows
+    if (t >= T_STREAM && t < T_IMPLODE){
+      const k = (t - T_STREAM) / (T_IMPLODE - T_STREAM);
+      I.acc += (8 + 70 * k * k) * dt;
+      while (I.acc >= 1){
+        I.acc--; const a = Math.random() * TAU, d = Math.max(W, H) * .62;
+        I.words.push({x:C.x + Math.cos(a) * d, y:C.y + Math.sin(a) * d * .8, a, txt:pick(WORDS), v:rand(90, 160), cyan:Math.random() < .6, life:0});
+      }
+      const vol = 1 + 2 * k * k;
+      if (Math.floor(vol * 10) !== I.lastTick){ I.lastTick = Math.floor(vol * 10); AU.sfx('tick'); }
+    }
+    if (t >= T_IMPLODE && t - dt < T_IMPLODE) AU.sfx('suck');
+    const pull = t >= T_IMPLODE ? 6 : 1 + (t - T_STREAM) * .5;
+    for (let i = I.words.length - 1; i >= 0; i--){
+      const w = I.words[i], dx = C.x - w.x, dy = C.y - w.y, dist = Math.hypot(dx, dy) || 1;
+      const sp = w.v * pull, sw = .55;   // inward, with a slight swirl
+      w.x += (dx / dist * sp + -dy / dist * sp * sw * .4) * dt; w.y += (dy / dist * sp + dx / dist * sp * sw * .4) * dt; w.life += dt;
+      if (dist < 26){ I.words.splice(i, 1); I.absorbed++; }
+    }
+    // impact: the EUV beam slams into the wafer
+    if (t >= T_IMPACT && !I.impact){
+      I.impact = true; I.words.length = 0;
+      V.beam = .001; V.beamSpeed = 1 / .16; V.shake = .7; V.ring = 0;
+      AU.mood(20000, .95, .04); setTimeout(() => { if (!G) AU.mood(1100, .78, .9); }, 1500);
+      burst(C.x, C.y, 60, '#bfe9ff', false);
+    }
+    if (I.impact){
+      const k = clamp((t - T_IMPACT) / 1.2, 0, 1);
+      V.cur = {y:.5, r:.25 + .65 * easeBack(k), a:.18 + .82 * easeOut(k), i:.55 + .6 * (1 - k)};
+      V.light = clamp((t - T_IMPACT - .25) / 1.1, 0, 1);
+    }
+    if (t >= T_END) finishIntro(false);
+  }
+  function drawIntro(){
+    const I = INTRO, t = I.t, C = waferC();
+    // words flowing in
+    g.save(); g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalCompositeOperation = 'lighter';
+    for (const w of I.words){
+      const dist = Math.hypot(C.x - w.x, C.y - w.y), near = clamp(dist / (Math.max(W, H) * .6), 0, 1);
+      g.globalAlpha = clamp(w.life * 3, 0, 1) * (.35 + .55 * near);
+      g.fillStyle = w.cyan ? '#5fd6f5' : '#a78bfa'; g.font = '600 ' + Math.round(9 + 7 * near) + 'px "IBM Plex Mono", monospace';
+      g.fillText(w.txt, w.x, w.y);
+    }
+    g.restore();
+    // core glow grows with every absorbed entry
+    if (t < T_IMPACT && t > T_STREAM){
+      const gr = Math.min(80, 10 + I.absorbed * .5), cg = g.createRadialGradient(C.x, C.y, 0, C.x, C.y, gr * 2);
+      cg.addColorStop(0, 'rgba(220,240,255,.85)'); cg.addColorStop(.3, 'rgba(120,160,255,.35)'); cg.addColorStop(1, 'rgba(80,40,200,0)');
+      g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = cg; g.beginPath(); g.arc(C.x, C.y, gr * 2, 0, TAU); g.fill(); g.restore();
+    }
+    // VOLUME vs TEAM counters and the line underneath
+    if (t > T_STREAM && t < T_IMPACT){
+      const k = clamp((t - T_STREAM) / (T_IMPLODE - T_STREAM), 0, 1), fade = t > T_IMPLODE ? 1 - (t - T_IMPLODE) / (T_IMPACT - T_IMPLODE) : clamp((t - T_STREAM) * 3, 0, 1);
+      const y = H * .2, gap = Math.min(150, W * .26), big = Math.round(Math.min(46, W * .11));
+      g.save(); g.globalAlpha = clamp(fade, 0, 1); g.textAlign = 'center';
+      const bw = Math.min(W - 24, gap * 2 + 190), bh = big + 52;   // dark panel so the stream never runs through the numbers
+      g.fillStyle = 'rgba(4,7,22,.78)'; rr(g, W / 2 - bw / 2, y - 26, bw, bh, 18); g.fill();
+      g.strokeStyle = 'rgba(160,180,255,.22)'; g.lineWidth = 1; rr(g, W / 2 - bw / 2 + .5, y - 25.5, bw - 1, bh - 1, 18); g.stroke();
+      g.font = '600 11px "IBM Plex Mono", monospace'; g.fillStyle = '#a3acd9';
+      g.fillText('V O L U M E', W / 2 - gap, y); g.fillText('T E A M', W / 2 + gap, y);
+      g.font = '600 ' + big + 'px "IBM Plex Mono", monospace';
+      g.shadowColor = 'rgba(95,214,245,.8)'; g.shadowBlur = 20; g.fillStyle = '#ffffff';
+      g.fillText('×' + (1 + 2 * k * k).toFixed(1), W / 2 - gap, y + big + 6);
+      g.shadowBlur = 0; g.fillStyle = '#7f88b8'; g.fillText('×1.0', W / 2 + gap, y + big + 6);
+      const line = 'Manual work alone won\u2019t close this.', n = Math.floor(clamp((t - 2.2) / 1, 0, 1) * line.length);
+      if (n > 0){ g.font = '500 ' + Math.round(Math.min(18, W * .045)) + 'px "IBM Plex Sans", sans-serif';
+        const lw = Math.min(W - 24, g.measureText(line).width + 40); g.fillStyle = 'rgba(4,7,22,.78)'; rr(g, W / 2 - lw / 2, H * .8 - 22, lw, 40, 20); g.fill();
+        g.fillStyle = '#ffc2cb';
+        g.fillText(line.slice(0, n) + (n < line.length && Math.floor(t * 8) % 2 ? '▍' : ''), W / 2, H * .8, W - 32); }
+      g.restore();
+    }
+    // implosion darkening
+    if (t > T_IMPLODE && t < T_IMPACT + .05){
+      g.fillStyle = 'rgba(2,3,10,' + clamp((t - T_IMPLODE) / (T_IMPACT - T_IMPLODE), 0, 1) * .7 + ')'; g.fillRect(0, 0, W, H);
+    }
+    if (t < T_STREAM){ g.fillStyle = 'rgba(2,3,10,' + (1 - t / T_STREAM) * .6 + ')'; g.fillRect(0, 0, W, H); }
+  }
+  function finishIntro(skipped){
+    INTRO.on = false; INTRO.done = true; INTRO.words.length = 0;
+    $('skip').hidden = true;
+    V.beam = 1; V.beamSpeed = 1 / 1.1; V.light = 1;
+    if (skipped){ V.flash = .5; AU.start(); AU.mood(1100, .78, .3); V.ring = 0; }
+    setScene(.5, .9, 1, .55);
+    $('s-home').classList.add('fast'); show('s-home');
+  }
+  $('enter').addEventListener('click', startIntro);
+  $('skip').addEventListener('click', () => { if (INTRO.on) finishIntro(true); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && INTRO.on) finishIntro(true);
+    else if ((e.key === 'Enter' || e.key === ' ') && !INTRO.on && !INTRO.done && $('s-intro').classList.contains('on')){ e.preventDefault(); startIntro(); }
+  });
 
   /* ================= screens ================= */
   function show(id){
@@ -1009,7 +1139,8 @@
   $('name').value = store.get('name', '');
 
   resize(); setScene(.5, .9, 1, .55); V.cur = {...V.tgt};
-  V.beam = reduced ? 1 : .001;
+  if (reduced || SKIP_INTRO){ V.beam = 1; INTRO.done = true; show('s-home'); }
+  else { V.beam = 0; V.light = 0; V.cur = {y:.5, r:.55, a:.18, i:.2}; setScene(.5, .55, .18, .2); show('s-intro'); }
   applySeason();
   last = performance.now(); requestAnimationFrame(frame);
   loadBoard('home'); loadSeason(); flushPending();

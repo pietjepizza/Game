@@ -5,6 +5,9 @@ Browser game for a Finance Operations team (~125 people), handed out before Chri
 ## Message the game must carry
 Volume keeps growing; you cannot scale it with people. ESSA (eliminate, simplify, standardize, automate) is the foundation to fix processes; AI is the extra enabler on top. Goal: people become AI-native and upskilled in using AI in daily work, so the team can handle more volume.
 
+## Status (v3.4)
+Cinematic intro (INTRO in game.js): gate screen `#s-intro` (tap/Enter, unlocks audio) -> 0.6-3.4 s entry words stream to the centre with VOLUME ×1.0→×3.0 vs TEAM ×1.0 counters and "Manual work alone won't close this." -> 3.4 s implosion -> 3.9 s fast EUV beam impact (flash, shake, shockwave ring `V.ring`, music filter fully open) -> wafer grows (easeBack) and dies light up from the centre (`V.light`) -> 5.4 s home with `.fast` animation delays. Skip button / Esc; auto-skipped for reduced motion and `?skipintro` (all test scripts use it).
+
 ## Status (v3.3)
 Elements from popular games (mechanics only): streak (gap <= 1.6 s; 10/25/50 -> x1.2/1.5/2), clutch (+50% when posted in the last 12% above the line), month-end spikes at 38 s and 68 s (3 s warning, 6 s at 1.8x volume, +200 x time multiplier when survived), personal best per mode in localStorage (`pb-<mode>`, HUD + banner), career rank (Intern 0, Junior Accountant 750, Accountant 2000, Senior Accountant 3500, Controller 5500, Finance Director 8000, CFO 11000), Play again + Share result (Wordle-style text with 10-block timeline; navigator.share on touch, else clipboard). If a duplicate and a real entry overlap under the finger, the real entry is posted. Server cap raised to 800 points per posted entry. Banners sit mid-field.
 

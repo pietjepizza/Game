@@ -285,3 +285,28 @@ input::placeholder{color:#6f78a8}
 .rankcard .extra{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
 /* the counters row sits below the round buttons, so it may use the full HUD width */
 .hud-stats{margin-right:-98px}
+
+/* ---------- v3.4: cinematic intro ---------- */
+#s-intro{pointer-events:auto}
+.gate{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center;padding:24px;transition:opacity .5s ease,transform .5s ease}
+.gate.away{opacity:0;transform:scale(1.08);pointer-events:none}
+.gate .eyebrow{opacity:.85}
+.enter{position:relative;width:112px;height:112px;border-radius:50%;border:1px solid rgba(160,200,255,.5);background:radial-gradient(circle at 50% 40%,rgba(120,160,255,.35),rgba(10,16,48,.85) 70%);
+  color:#fff;display:grid;place-items:center;box-shadow:0 0 40px rgba(95,214,245,.35),inset 0 0 24px rgba(167,139,250,.35)}
+.enter b{font-size:34px;line-height:1;transform:translateX(3px);text-shadow:0 0 18px rgba(95,214,245,.9)}
+.enter .ring{position:absolute;inset:-2px;border-radius:50%;border:1px solid rgba(95,214,245,.7);animation:gatering 2.4s cubic-bezier(.2,.6,.2,1) infinite}
+.enter .r2{animation-delay:.8s;border-color:rgba(167,139,250,.7)}
+.enter .r3{animation-delay:1.6s}
+@keyframes gatering{0%{transform:scale(1);opacity:.9}100%{transform:scale(2.3);opacity:0}}
+.enter:hover{box-shadow:0 0 60px rgba(95,214,245,.55),inset 0 0 24px rgba(167,139,250,.45)}
+.gate-title{font:300 clamp(22px,6vw,30px) var(--display);letter-spacing:.32em;text-transform:uppercase;color:#dfe6ff;padding-left:.32em}
+.gate-hint{font:500 12px var(--mono);letter-spacing:.12em;color:var(--muted)}
+.skip{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:25;border:1px solid var(--line-2);background:rgba(10,16,48,.6);color:var(--muted);
+  border-radius:999px;padding:9px 16px;font:600 13px var(--body);pointer-events:auto;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.skip[hidden]{display:none}
+.skip:hover{color:var(--text)}
+/* after the intro the home screen builds up quickly: the light show already happened */
+#s-home.fast .title .t1{animation-delay:.05s}
+#s-home.fast .title .t2{animation-delay:.2s}
+#s-home.fast .rv{animation-delay:calc(var(--d,0s) * .45)}
+@media (prefers-reduced-motion:reduce){.enter .ring{animation:none}.gate{transition:none}}

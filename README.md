@@ -4,6 +4,10 @@ A browser game for the Finance Operations team. Volume grows, the team doesn't. 
 
 **Play:** https://pietjepizza.github.io/Game/ (works on phone and desktop, no install).
 
+## Intro
+
+The game opens on a dark gate ("Tap to begin", which also unlocks sound). The ~5-second cinematic that follows tells the story: entries stream in from every side while VOLUME climbs from ×1.0 to ×3.0 and TEAM stays at ×1.0 ("Manual work alone won't close this"), everything implodes, the EUV beam slams into the wafer with a flash and shockwave, and the wafer's dies light up from the centre before the home screen appears. Skip with the button or Esc; it is skipped automatically for players who prefer reduced motion, and with `?skipintro` in the URL.
+
 ## How it works in the game
 
 Mechanics borrowed from popular games (mechanics only, no names or looks): a **streak** multiplier for posting quickly in a row (up to ×2), **clutch saves** (+50% for posting just above the line), two announced **month-end spikes** with a bonus for surviving them, a **personal best** shown during the game, a **career rank** from Intern to CFO, **Play again** right at the top of the end screen, and a Wordle-style **Share result** that copies a spoiler-free summary with a 10-block timeline for Teams.
