@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#040716">
-<meta name="description" content="Close the Books. Volume grows, the team doesn't. Close manually, fix the process with ESSA, then go AI-native. Compete on the leaderboard.">
+<meta name="description" content="Close the Books. Volume grows, the team doesn't. 90 seconds, four ESSA power buttons, one leaderboard. AI unlocks in January.">
 <title>Close the Books</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%235fd6f5'/%3E%3Cstop offset='1' stop-color='%23a78bfa'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='%23040716'/%3E%3Ccircle cx='16' cy='17' r='10' fill='none' stroke='url(%23g)' stroke-width='2.5'/%3E%3Cpath d='M16 2v15' stroke='%23a78bfa' stroke-width='2.5'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=2.0.2">
+<link rel="stylesheet" href="style.css?v=3.0.0">
 </head>
 <body>
 <canvas id="world" aria-hidden="true"></canvas>
@@ -21,25 +21,27 @@
   <!-- ============ HOME ============ -->
   <section id="s-home" class="screen on">
     <div class="home">
-      <div class="eyebrow rv" style="--d:.2s">Finance Operations · Season 2026</div>
+      <div class="eyebrow rv" style="--d:.2s" id="h-eyebrow">Finance Operations · Season 1</div>
       <h1 class="title" aria-label="Close the Books">
         <span class="t1">Close the</span>
         <span class="t2">Books</span>
       </h1>
-      <p class="tagline rv" style="--d:1.6s">Volume grows every year. The team doesn't.<br>How much can you close?</p>
+      <p class="tagline rv" style="--d:1.6s">Volume grows every year. The team doesn't.<br>90 seconds. How much can you close?</p>
 
-      <ol class="acts rv" style="--d:1.9s">
-        <li><b>01</b><span>Manual</span><small>every entry by hand</small></li>
-        <li><b>02</b><span>ESSA</span><small>fix the process</small></li>
-        <li><b>03</b><span>AI-native</span><small>direct the AI, check its work</small></li>
-      </ol>
+      <div class="powers-intro rv" style="--d:1.9s">
+        <div class="pi"><b>E</b><span>Eliminate</span></div>
+        <div class="pi"><b>S</b><span>Simplify</span></div>
+        <div class="pi"><b>S</b><span>Standardize</span></div>
+        <div class="pi"><b>A</b><span>Automate</span></div>
+        <div class="pi ai" id="pi-ai"><b>AI</b><span id="pi-ai-t">January</span></div>
+      </div>
 
       <form id="f-start" class="glass start rv" style="--d:2.2s" action="#" onsubmit="return false" novalidate>
         <label for="name">Your name on the leaderboard</label>
         <input id="name" maxlength="24" autocomplete="name" placeholder="First name + last initial">
         <div class="err" id="err" role="alert"></div>
         <button class="btn primary" type="submit"><span>Start the close</span></button>
-        <p class="fine">About 3 minutes. Sound on for the full experience. Your name and scores appear on the shared leaderboard.</p>
+        <p class="fine">Tap entries before they hit the close line. Fill the ESSA power buttons by posting, then use them. Sound on.</p>
       </form>
 
       <section class="glass board-box rv" style="--d:2.4s" aria-labelledby="lb-h">
@@ -49,8 +51,7 @@
         </div>
         <div class="tabs" role="tablist" data-board="home">
           <button type="button" role="tab" data-cat="score">🏆 Score</button>
-          <button type="button" role="tab" data-cat="speed">⚡ Fastest</button>
-          <button type="button" role="tab" data-cat="review">🔍 Reviewer</button>
+          <button type="button" role="tab" data-cat="entries">📒 Entries</button>
         </div>
         <p class="cat-desc" id="home-cat-desc"></p>
         <ol class="board" id="board-home"></ol>
@@ -58,20 +59,21 @@
     </div>
   </section>
 
-  <!-- ============ PLAY HUD ============ -->
+  <!-- ============ PLAY ============ -->
   <section id="s-play" class="screen">
     <div class="hud glass">
-      <div class="hud-act"><b id="h-act">ACT 1</b><span id="h-actname">Manual</span></div>
+      <div class="hud-act"><b>CLOSE</b><span id="h-clock">1:30</span></div>
       <div class="hud-score"><span>Score</span><b id="h-score">0</b></div>
       <div class="hud-bar"><i id="h-time"></i></div>
       <div class="hud-stats" id="h-stats"></div>
     </div>
-    <button id="pause" class="icon-btn" type="button" aria-label="Pause">❚❚</button>
-  </section>
-
-  <!-- ============ PANELS (between acts) ============ -->
-  <section id="s-panel" class="screen">
-    <div class="panel glass" id="panel"></div>
+    <div class="powerbar" id="powerbar">
+      <button type="button" class="pw" data-p="elim"><i></i><b>E</b><span>Eliminate</span></button>
+      <button type="button" class="pw" data-p="simp"><i></i><b>S</b><span>Simplify</span></button>
+      <button type="button" class="pw" data-p="std"><i></i><b>S</b><span>Standardize</span></button>
+      <button type="button" class="pw" data-p="auto"><i></i><b>A</b><span>Automate</span></button>
+      <button type="button" class="pw ai locked" data-p="ai"><i></i><b>AI</b><span id="pw-ai-t">Jan</span></button>
+    </div>
   </section>
 
   <!-- ============ END ============ -->
@@ -87,9 +89,14 @@
       <div class="ranks" id="e-ranks"></div>
       <p class="status" id="e-status"></p>
 
+      <div class="glass tipcard">
+        <div class="eyebrow">AI tip for Monday morning</div>
+        <p id="e-tip"></p>
+      </div>
+
       <div class="glass message">
-        <p class="lede">Manual work doesn't scale. <b>ESSA</b> fixes the process. <b>AI</b> multiplies what the team can do, as long as people know how to direct it and check its work.</p>
-        <div class="tbc">To be continued<span class="cursor"></span></div>
+        <p class="lede" id="e-lede"></p>
+        <div class="tbc" id="e-tbc">To be continued<span class="cursor"></span></div>
         <p class="muted" id="e-season"></p>
       </div>
 
@@ -97,8 +104,7 @@
         <div class="board-head"><h2 id="lb-e">Leaderboard</h2></div>
         <div class="tabs" role="tablist" data-board="end">
           <button type="button" role="tab" data-cat="score">🏆 Score</button>
-          <button type="button" role="tab" data-cat="speed">⚡ Fastest</button>
-          <button type="button" role="tab" data-cat="review">🔍 Reviewer</button>
+          <button type="button" role="tab" data-cat="entries">📒 Entries</button>
         </div>
         <p class="cat-desc" id="end-cat-desc"></p>
         <ol class="board" id="board-end"></ol>
@@ -110,11 +116,13 @@
   </section>
 
   <button id="snd" class="icon-btn" type="button" aria-pressed="true" aria-label="Music and sound">♪</button>
+  <button id="pause" class="icon-btn" type="button" aria-label="Pause" hidden>❚❚</button>
 
   <div class="pausebox" id="pausebox" hidden>
     <div class="glass">
       <h2>Paused</h2>
       <button class="btn primary" id="resume" type="button"><span>Resume</span></button>
+      <button class="btn ghost" id="quit" type="button">Quit to home</button>
     </div>
   </div>
 </main>
@@ -127,6 +135,6 @@
     f.textContent = 'Something went wrong (' + (e.message || 'script error') + '). Please reload the page with Ctrl+F5 / Cmd+Shift+R, or try another browser.';
   });
 </script>
-<script src="game.js?v=2.0.2"></script>
+<script src="game.js?v=3.0.0"></script>
 </body>
 </html>

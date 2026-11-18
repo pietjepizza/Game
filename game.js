@@ -1,5 +1,6 @@
-/* Close the Books — season 2026
-   Plain JavaScript, no build step. Leaderboard on Supabase (public publishable key; all writes go through checked functions). */
+/* Close the Books — 90-second close with ESSA power buttons. AI unlocks in season 2 (January).
+   Plain JavaScript, no build step. Leaderboard on Supabase (public publishable key; all writes go through checked functions).
+   URL flags: ?test keeps runs off the real leaderboard; ?s2 previews season 2 (AI unlocked) in test mode. */
 (() => {
   'use strict';
 
@@ -7,8 +8,8 @@
   const CFG = {
     url: 'https://evdtpvbacpibeasrczhu.supabase.co',
     key: 'sb_publishable_Y1GmwdTaooG8yqFTTTZApQ_WVwIwyZz',
-    mode: /[?&]test\b/.test(location.search) ? 'test' : 'v2',   // ?test keeps trial runs off the real leaderboard
-    version: '2.0.2'
+    version: '3.0.0',
+    dur: 90
   };
   const $ = id => document.getElementById(id);
   const TAU = Math.PI * 2;
@@ -31,6 +32,12 @@
   }
   let PLAYER = store.get('player', null); if (!PLAYER){ PLAYER = uuid(); store.set('player', PLAYER); }
 
+  const QS = location.search;
+  const TEST = /[?&]test\b/.test(QS), PREVIEW_S2 = /[?&]s2\b/.test(QS);
+  let SEASON = store.get('season', 's1');
+  const modeFor = () => (TEST || PREVIEW_S2) ? 'test' : SEASON;
+  const aiUnlocked = () => PREVIEW_S2 || SEASON === 's2';
+
   /* ================= leaderboard API ================= */
   const api = {
     async rpc(fn, body){
@@ -42,19 +49,18 @@
         return await r.json();
       } finally { clearTimeout(to); }
     },
-    board(cat, limit){ const c = CATS[cat]; return this.rpc('leaderboard', {p_mode:CFG.mode, p_metric:c.metric, p_ascending:c.asc, p_limit:limit || 10}); },
+    board(cat, limit){ const c = CATS[cat]; return this.rpc('leaderboard', {p_mode:modeFor(), p_metric:c.metric, p_ascending:false, p_limit:limit || 10}); },
     submit(run){ return this.rpc('submit_run', run); },
     season(){ return this.rpc('season'); }
   };
   const CATS = {
-    score:  {metric:'score',  asc:false, desc:'Highest total score over all three acts.', show:v => fmt(v)},
-    speed:  {metric:'avg_ms', asc:true,  desc:'Fastest average time to post an entry by hand (at least 30 entries).', show:v => (v / 1000).toFixed(2) + ' s'},
-    review: {metric:'review', asc:false, desc:'AI errors caught in Act 3, minus correct AI drafts you rejected.', show:v => fmt(v) + ' net'}
+    score:   {metric:'score',  desc:'Highest score in one 90-second close. Only your best game counts.', show:v => fmt(v)},
+    entries: {metric:'posted', desc:'Most entries posted in one game: by hand, by automation and by AI.', show:v => fmt(v)}
   };
 
   /* ================= audio ================= */
   const AU = {
-    el:$('music'), ctx:null, filter:null, gain:null, sfxOut:null, on:store.get('snd', true), started:false, routed:false,
+    el:$('music'), ctx:null, filter:null, gain:null, sfxOut:null, on:store.get('snd', true), routed:false,
     init(){
       if (this.ctx) return;
       try {
@@ -75,13 +81,12 @@
       this.el.muted = !this.on;
       if (!this.routed) this.el.volume = .6;
       if (this.el.paused){ const p = this.el.play(); if (p && p.catch) p.catch(() => {}); }
-      this.started = true;
     },
     // how "open" the music sounds: low cutoff = muffled, high = full
-    mood(hz, vol){
+    mood(hz, vol, tc){
       if (!this.ctx || !this.filter) return;
       const t = this.ctx.currentTime;
-      this.filter.frequency.cancelScheduledValues(t); this.filter.frequency.setTargetAtTime(hz, t, .6);
+      this.filter.frequency.cancelScheduledValues(t); this.filter.frequency.setTargetAtTime(hz, t, tc || .6);
       if (vol != null){ this.gain.gain.cancelScheduledValues(t); this.gain.gain.setTargetAtTime(vol, t, .5); }
     },
     toggle(){
@@ -116,15 +121,15 @@
         case 'post':   this.tone(880, .09, 'sine', .07); this.tone(1320, .12, 'sine', .05, t + .045); break;
         case 'bot':    this.tone(2200, .05, 'sine', .025); break;
         case 'late':   this.tone(140, .35, 'sine', .22, 0, 60); this.noise(.18, .05, 900, 200); break;
-        case 'caught': this.tone(988, .1, 'triangle', .08); this.tone(1480, .16, 'triangle', .07, t + .06); break;
-        case 'misstate': this.noise(.3, .12, 2400, 300); this.tone(110, .3, 'square', .05, 0, 70); break;
-        case 'reject': this.tone(420, .12, 'triangle', .06, 0, 300); break;
+        case 'lock':   this.tone(300, .1, 'triangle', .05, 0, 240); break;
+        case 'ready':  this.tone(1568, .12, 'sine', .05); this.tone(2093, .18, 'sine', .04, t + .07); break;
+        case 'power':  [523, 784, 1047, 1568].forEach((f, i) => this.tone(f, .35, 'triangle', .07, t + i * .05)); this.noise(.5, .05, 800, 5000); break;
+        case 'elim':   this.noise(.6, .12, 5000, 300); this.tone(220, .5, 'sine', .12, 0, 80); break;
+        case 'ai':     [392, 587, 784, 1175, 1568, 2349].forEach((f, i) => this.tone(f, .6, 'triangle', .06, t + i * .06)); this.noise(1.4, .08, 300, 8000); break;
         case 'riser':  this.noise(1.6, .06, 300, 6000); break;
         case 'impact': this.tone(55, 1.2, 'sine', .35, 0, 35); this.noise(.8, .08, 3000, 200); break;
-        case 'act':    [523, 784, 1047].forEach((f, i) => this.tone(f, .5, 'triangle', .06, t + i * .09)); break;
-        case 'pick':   this.tone(1175, .08, 'sine', .06); break;
-        case 'right':  [784, 988, 1319].forEach((f, i) => this.tone(f, .3, 'triangle', .07, t + i * .07)); break;
-        case 'wrong':  this.tone(330, .25, 'triangle', .07, 0, 220); break;
+        case 'count':  this.tone(880, .12, 'triangle', .07); break;
+        case 'go':     [523, 784, 1047].forEach((f, i) => this.tone(f, .5, 'triangle', .07, t + i * .08)); break;
         case 'end':    [392, 523, 659, 784, 1047].forEach((f, i) => this.tone(f, .7, 'triangle', .06, t + i * .1)); break;
       }
     }
@@ -139,8 +144,8 @@
   const cv = $('world'), g = cv.getContext('2d');
   let W = 0, H = 0, DPR = 1, gridC = null;
   const V = {
-    t:0, beam:0, flash:0, shake:0, glitch:0,
-    cur:{y:.66, r:1, a:1, i:.55}, tgt:{y:.66, r:1, a:1, i:.55},
+    t:0, beam:0, flash:0, shake:0, aiGlow:0,
+    cur:{y:.5, r:.9, a:1, i:.55}, tgt:{y:.5, r:.9, a:1, i:.55},
     dust:[], parts:[], streaks:[]
   };
   function setScene(y, r, a, i){ V.tgt = {y, r, a, i}; }
@@ -179,7 +184,6 @@
     const bg = g.createRadialGradient(C.x, C.y - R * .3, 0, C.x, C.y, Math.max(W, H) * .9);
     bg.addColorStop(0, '#101c62'); bg.addColorStop(.45, '#070d33'); bg.addColorStop(1, '#03050f');
     g.fillStyle = bg; g.fillRect(0, 0, W, H);
-    // slow light shafts
     if (!reduced){
       g.save(); g.globalCompositeOperation = 'lighter';
       for (let k = 0; k < 3; k++){
@@ -190,7 +194,6 @@
       }
       g.restore();
     }
-    // dust (rises slowly, twinkles)
     g.fillStyle = '#cfe0ff';
     for (const d of V.dust){
       d.y -= d.v * dt; if (d.y < -4){ d.y = H + 4; d.x = Math.random() * W; }
@@ -200,32 +203,27 @@
   }
 
   function drawWafer(){
-    const C = waferC(), R = waferR(), a = V.cur.a, I = V.cur.i, tilt = .36, rot = reduced ? .4 : V.t * .06;
+    const C = waferC(), R = waferR(), a = V.cur.a, I = V.cur.i, tilt = .36, rot = reduced ? .4 : V.t * (.06 + V.aiGlow * .5);
     g.save(); g.globalAlpha = a;
-    // halo under the wafer
     g.save(); g.globalCompositeOperation = 'lighter';
     const halo = g.createRadialGradient(C.x, C.y, R * .2, C.x, C.y, R * 1.5);
     halo.addColorStop(0, 'rgba(120,140,255,' + (.18 + .2 * I) + ')'); halo.addColorStop(1, 'rgba(60,40,160,0)');
     g.fillStyle = halo; g.beginPath(); g.ellipse(C.x, C.y, R * 1.5, R * 1.5 * tilt * 1.4, 0, 0, TAU); g.fill(); g.restore();
-    // body
     g.save(); g.translate(C.x, C.y); g.scale(1, tilt);
     g.beginPath(); g.arc(0, 0, R, 0, TAU);
     const body = g.createRadialGradient(-R * .3, -R * .5, R * .1, 0, 0, R);
     body.addColorStop(0, '#24357f'); body.addColorStop(1, '#070b26'); g.fillStyle = body; g.fill();
     g.save(); g.clip();
     g.save(); g.rotate(rot); g.drawImage(gridC, -R, -R, R * 2, R * 2); g.restore();
-    // iridescent diffraction sheen
     if (g.createConicGradient){
       const cg = g.createConicGradient(rot * 2.2, 0, 0), hs = [190, 260, 320, 30, 90, 160, 190];
       hs.forEach((h, i) => cg.addColorStop(i / (hs.length - 1), 'hsla(' + h + ',95%,62%,1)'));
-      g.globalCompositeOperation = 'screen'; g.globalAlpha = a * (.22 + .18 * I); g.fillStyle = cg; g.fillRect(-R, -R, R * 2, R * 2);
+      g.globalCompositeOperation = 'screen'; g.globalAlpha = a * (.22 + .18 * I + .3 * V.aiGlow); g.fillStyle = cg; g.fillRect(-R, -R, R * 2, R * 2);
     }
-    // specular sweep
     const sx = Math.sin(V.t * .35) * R * 1.4, sp = g.createLinearGradient(sx - R * .5, -R, sx + R * .5, R);
     sp.addColorStop(0, 'rgba(255,255,255,0)'); sp.addColorStop(.5, 'rgba(255,255,255,.16)'); sp.addColorStop(1, 'rgba(255,255,255,0)');
     g.globalCompositeOperation = 'screen'; g.globalAlpha = a; g.fillStyle = sp; g.fillRect(-R, -R, R * 2, R * 2);
     g.restore();
-    // rim
     g.lineWidth = 2.5; const rim = g.createLinearGradient(-R, 0, R, 0);
     rim.addColorStop(0, 'rgba(95,214,245,.9)'); rim.addColorStop(.5, 'rgba(255,255,255,.7)'); rim.addColorStop(1, 'rgba(167,139,250,.9)');
     g.strokeStyle = rim; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.stroke();
@@ -234,7 +232,7 @@
 
   function drawBeam(){
     if (V.beam <= 0) return;
-    const C = waferC(), R = waferR(), I = V.cur.i, len = C.y * Math.min(1, V.beam), pulse = reduced ? 0 : Math.sin(V.t * 9) * 1.5;
+    const C = waferC(), R = waferR(), I = Math.min(1.4, V.cur.i + V.aiGlow), len = C.y * Math.min(1, V.beam), pulse = reduced ? 0 : Math.sin(V.t * 9) * 1.5;
     const w = 5 + I * 9 + pulse;
     g.save(); g.globalCompositeOperation = 'lighter';
     for (const [k, col] of [[5, 'rgba(140,90,255,.10)'], [2.2, 'rgba(150,110,255,.28)'], [1, 'rgba(170,230,255,.75)'], [.35, 'rgba(255,255,255,.95)']]){
@@ -243,13 +241,12 @@
       g.fillStyle = gr; g.fillRect(C.x - ww, 0, ww * 2, len);
     }
     if (V.beam >= 1){
-      // impact glow and horizontal lens streak
       const fr = R * (.35 + .35 * I) * (1 + .06 * Math.sin(V.t * 5));
       const ig = g.createRadialGradient(C.x, C.y, 0, C.x, C.y, fr);
       ig.addColorStop(0, 'rgba(255,255,255,.95)'); ig.addColorStop(.12, 'rgba(180,230,255,.7)'); ig.addColorStop(.4, 'rgba(140,100,255,.25)'); ig.addColorStop(1, 'rgba(80,40,200,0)');
       g.fillStyle = ig; g.beginPath(); g.ellipse(C.x, C.y, fr, fr * .55, 0, 0, TAU); g.fill();
       const sw = Math.min(W * .9, R * 3.2), st = g.createLinearGradient(C.x - sw / 2, 0, C.x + sw / 2, 0);
-      st.addColorStop(0, 'rgba(95,214,245,0)'); st.addColorStop(.5, 'rgba(200,240,255,' + (.35 + .25 * I) + ')'); st.addColorStop(1, 'rgba(167,139,250,0)');
+      st.addColorStop(0, 'rgba(95,214,245,0)'); st.addColorStop(.5, 'rgba(200,240,255,' + Math.min(1, .35 + .25 * I) + ')'); st.addColorStop(1, 'rgba(167,139,250,0)');
       g.fillStyle = st; g.fillRect(C.x - sw / 2, C.y - 1.5, sw, 3);
     }
     g.restore();
@@ -266,235 +263,290 @@
       if (p.life <= 0){ V.parts.splice(i, 1); continue; }
       g.globalAlpha = Math.min(1, p.life * 2); g.fillStyle = p.col; g.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
     }
-    // AI throughput streaks flowing into the wafer
     g.lineCap = 'round';
     for (let i = V.streaks.length - 1; i >= 0; i--){
       const s = V.streaks[i]; s.k += dt * s.v; if (s.k >= 1){ V.streaks.splice(i, 1); continue; }
-      const e = s.k * s.k, x = lerp(s.x, C.x, e), y = lerp(s.y, C.y, e), e2 = Math.max(0, s.k - .12) ** 2;
+      const e = s.k * s.k, x = lerp(s.x, C.x, e), y = lerp(s.y, C.y, e), e2 = Math.max(0, s.k - .14) ** 2;
       const x2 = lerp(s.x, C.x, e2), y2 = lerp(s.y, C.y, e2);
-      g.globalAlpha = .9; g.strokeStyle = s.col; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x2, y2); g.lineTo(x, y); g.stroke();
+      g.globalAlpha = .95; g.strokeStyle = s.col; g.lineWidth = 2; g.beginPath(); g.moveTo(x2, y2); g.lineTo(x, y); g.stroke();
     }
     g.restore(); g.globalAlpha = 1;
   }
   function burst(x, y, n, col, home){
     if (reduced) return;
     for (let i = 0; i < n; i++){ const a = Math.random() * TAU, v = rand(60, 220); V.parts.push({x, y, vx:Math.cos(a) * v, vy:Math.sin(a) * v, life:home ? 1.6 : .6, col, home}); }
-    if (V.parts.length > 500) V.parts.splice(0, V.parts.length - 500);
+    if (V.parts.length > 600) V.parts.splice(0, V.parts.length - 600);
+  }
+  function streak(x, y){
+    if (reduced || V.streaks.length > 180) return;
+    V.streaks.push({x, y, k:0, v:rand(1, 1.6), col:Math.random() < .5 ? 'rgba(95,214,245,.9)' : 'rgba(167,139,250,.9)'});
   }
 
-  /* ================= game layout & cards ================= */
+  /* ================= layout & cards ================= */
   const L = {x0:0, x1:0, top:0, line:0};
-  let CW = 176, CH = 58;
+  let CW = 176, CH = 56;
   function layout(){
     const colW = Math.min(560, W) - 16; L.x0 = (W - colW) / 2; L.x1 = L.x0 + colW;
-    L.top = 96; L.line = H - 64;
-    CW = Math.min(184, Math.floor(colW * .47)); CH = 58;
+    L.top = 92; L.line = H - 128;
+    CW = Math.min(184, Math.floor(colW * .47)); CH = 56;
   }
   const KIND = {
-    R:   {label:'Journal entry', col:'#5fd6f5', subs:['Accrual · €12,400','Reclass · €3,950','Prepayment · €8,200','Payroll · €41,000','Freight · €6,730','Rent · €18,500']},
-    C:   {label:'Complex deal',  col:'#a78bfa', subs:['Revenue split · €4.1M','Deferred to acceptance','Multi-element · €2.7M','Lease · €1.3M']},
-    OK:  {label:'AI draft',      col:'#4fe0a0'},
-    ERR: {label:'AI draft',      col:'#ffb84d'}
+    R: {label:'Journal entry', col:'#5fd6f5', subs:['Accrual · €12,400','Reclass · €3,950','Prepayment · €8,200','Payroll · €41,000','Freight · €6,730','Rent · €18,500','Depreciation · €9,100']},
+    C: {label:'Complex deal',  col:'#a78bfa', subs:['Revenue split · €4.1M','Deferred to acceptance','Multi-element · €2.7M','Lease · €1.3M']},
+    X: {label:'AI-ready',      col:'#8d98c9', subs:['Bank match · 412 lines','Invoice matching','IC reconciliation','Variance commentary','Accrual proposal']}
   };
-  const AI_WHAT = ['Accrual','Reclass','Invoice match','IC elimination','FX revaluation','Bank match','Provision'];
-  const AI_FLAG = ['VAT code?','Wrong period?','Duplicate?','Amount ×10?','Wrong entity?','No source doc'];
 
   const sprites = new Map(), PAD = 22;
   function rr(c, x, y, w, h, r){ c.beginPath(); if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h); }
   function sprite(it){
-    const hit = it.hit > 0, key = [it.k, it.what || '', it.sub, it.taps, hit ? 1 : 0].join('|');
+    const hit = it.hit > 0, open = it.k === 'X' && aiUnlocked(), key = [it.k, it.sub, it.taps, hit ? 1 : 0, open ? 1 : 0].join('|');
     let s = sprites.get(key); if (s) return s;
     if (sprites.size > 300) sprites.clear();
     s = document.createElement('canvas'); s.width = Math.ceil((CW + PAD * 2) * DPR); s.height = Math.ceil((CH + PAD * 2) * DPR);
-    const c = s.getContext('2d'), K = KIND[it.k], col = K.col;
+    const c = s.getContext('2d'), K = KIND[it.k], col = open ? '#4fe0a0' : K.col;
     c.scale(DPR, DPR); c.translate(PAD, PAD);
-    c.shadowColor = col; c.shadowBlur = hit ? 26 : 16;
-    rr(c, 0, 0, CW, CH, 12); c.fillStyle = hit ? 'rgba(30,44,110,.97)' : 'rgba(10,16,48,.94)'; c.fill();
+    c.shadowColor = col; c.shadowBlur = hit ? 26 : it.k === 'X' ? 8 : 16;
+    rr(c, 0, 0, CW, CH, 12); c.fillStyle = hit ? 'rgba(30,44,110,.97)' : it.k === 'X' && !open ? 'rgba(14,18,44,.82)' : 'rgba(10,16,48,.94)'; c.fill();
     c.shadowBlur = 0;
     const hl = c.createLinearGradient(0, 0, 0, CH); hl.addColorStop(0, 'rgba(255,255,255,.10)'); hl.addColorStop(.5, 'rgba(255,255,255,0)');
     rr(c, 0, 0, CW, CH, 12); c.fillStyle = hl; c.fill();
-    c.lineWidth = 1; c.strokeStyle = hit ? col : 'rgba(190,205,255,.22)'; rr(c, .5, .5, CW - 1, CH - 1, 12); c.stroke();
+    c.lineWidth = 1; c.strokeStyle = hit ? col : 'rgba(190,205,255,.22)';
+    if (it.k === 'X' && !open) c.setLineDash([4, 4]);
+    rr(c, .5, .5, CW - 1, CH - 1, 12); c.stroke(); c.setLineDash([]);
     c.shadowColor = col; c.shadowBlur = 10; c.fillStyle = col; rr(c, 0, 10, 3, CH - 20, 2); c.fill(); c.shadowBlur = 0;
     c.textBaseline = 'alphabetic'; c.textAlign = 'left';
-    const isAI = it.k === 'OK' || it.k === 'ERR', right = isAI ? 34 : 14 + it.taps * 12;
-    c.fillStyle = '#f4f6ff'; c.font = '600 13px "IBM Plex Sans", sans-serif';
-    c.fillText(isAI ? 'AI draft · ' + it.what : K.label, 14, 24, CW - 20 - right);
-    c.font = '500 11px "IBM Plex Mono", monospace';
-    c.fillStyle = it.k === 'ERR' ? '#ffb84d' : it.k === 'OK' ? '#4fe0a0' : '#a3acd9';
-    c.fillText(it.sub, 14, 43, CW - 20 - right);
-    if (isAI){
-      rr(c, CW - 30, 16, 20, 14, 4); c.fillStyle = col; c.fill();
-      c.fillStyle = '#040716'; c.font = '700 9px "IBM Plex Sans", sans-serif'; c.textAlign = 'center'; c.fillText('AI', CW - 20, 26.5);
-      if (it.k === 'ERR'){ c.fillStyle = '#ffb84d'; c.font = '700 13px "IBM Plex Sans", sans-serif'; c.fillText('⚠', CW - 20, 46); }
+    const right = it.k === 'X' ? 30 : 14 + it.taps * 12;
+    c.fillStyle = it.k === 'X' && !open ? '#c3c9ea' : '#f4f6ff'; c.font = '600 13px "IBM Plex Sans", sans-serif';
+    c.fillText(it.k === 'X' ? (open ? 'AI agent' : 'AI-ready') : K.label, 14, 23, CW - 20 - right);
+    c.font = '500 11px "IBM Plex Mono", monospace'; c.fillStyle = it.k === 'X' ? (open ? '#4fe0a0' : '#8d98c9') : '#a3acd9';
+    c.fillText(it.sub, 14, 41, CW - 20 - right);
+    if (it.k === 'X'){
+      c.font = '13px sans-serif'; c.textAlign = 'center'; c.fillText(open ? '✦' : '🔒', CW - 17, 34);
     } else {
-      for (let i = 0; i < it.taps; i++){ c.beginPath(); c.arc(CW - 14 - i * 12, 36, 4, 0, TAU); c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 6; c.fill(); }
+      for (let i = 0; i < it.taps; i++){ c.beginPath(); c.arc(CW - 14 - i * 12, 34, 4, 0, TAU); c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 6; c.fill(); }
       c.shadowBlur = 0;
     }
     sprites.set(key, s); return s;
   }
 
   /* ================= game ================= */
-  const ACTS = [
-    {n:'ACT 1', name:'Manual',    dur:40, mult:1, rule:'Tap every entry before it hits the close line.', mood:2200},
-    {n:'ACT 2', name:'ESSA',      dur:40, mult:2, rule:'Your process improvements are live. Keep closing.', mood:6000},
-    {n:'ACT 3', name:'AI-native', dur:50, mult:3, rule:'AI posts the volume. You handle complex deals and catch AI errors.', mood:20000}
-  ];
-  const ESSA = [
-    {k:'elim', L:'E', name:'Eliminate',   d:'35% of the entries are never created: stop work that adds no value.'},
-    {k:'simp', L:'S', name:'Simplify',    d:'Complex deals need 2 taps instead of 3.'},
-    {k:'std',  L:'S', name:'Standardize', d:'Entries arrive in fixed lanes and fall 15% slower.'},
-    {k:'auto', L:'A', name:'Automate',    d:'A bot posts 1.5 routine journal entries per second.'}
-  ];
-  const QUESTIONS = [
-    {q:'You need an explanation for a €2.4M freight variance versus budget for the month-end pack. Which prompt works best?',
-      o:['Explain the freight variance for October.',
-         'You are a cost controller. Using the attached GL extract and budget, explain the €2.4M October freight variance in 3 bullets: volume, rate and one-offs. Say what you are unsure about.',
-         'Write a detailed report about freight costs and why they are high.'], a:1,
-      tip:'Give the AI a role, the data, the exact question and the format you want, and ask it to flag doubts.'},
-    {q:'You want to match 300 bank statement lines to open items. Which instruction gets you a result you can trust?',
-      o:['Match these and give me the result.',
-         'Match as many lines as you can, and fill in the most likely invoice when you are not sure.',
-         'Match each bank line to an open item on amount, date and reference. Return a table with your confidence, and list unmatched lines separately. Do not guess.'], a:2,
-      tip:'Tell the AI how to match, what to return and what to do when it is unsure. "Do not guess" matters in finance.'},
-    {q:'The AI gives you an accrual of €1.2M for unbilled services. What do you do before you post it?',
-      o:['Post it: the AI is usually right.',
-         'Ask the AI to show its calculation and sources, and check them against the purchase orders.',
-         'Round it to €1M to be safe.'], a:1,
-      tip:'You stay accountable. Ask the AI to show its work, and verify it against the source.'},
-    {q:'You want to summarise a 40-page customer contract for revenue recognition. Which prompt is best?',
-      o:['Summarise this contract.',
-         'From this contract, list the performance obligations, payment terms, acceptance clauses and anything unusual that affects revenue timing. Quote the clause numbers.',
-         'Is this a good contract?'], a:1,
-      tip:'Be specific about what you need and ask for clause references, so you can check the answer quickly.'},
-    {q:'You want help analysing a spreadsheet with employee salary data. What is the right move?',
-      o:['Paste it into any free AI website. It is faster.',
-         'Remove the names and use it anyway in a public tool.',
-         'Use only the AI tools your company has approved for this kind of data.'], a:2,
-      tip:'Confidential and personal data only goes into approved company tools.'},
-    {q:'You need to chase a business controller for missing accruals before Day 2. Which prompt drafts the best email?',
-      o:['Write an email asking for accruals.',
-         'Draft a short, friendly email to a business controller asking for missing October accruals by Day 2, 12:00. List what we need in bullets and explain why the deadline matters.',
-         'Write an angry email about late accruals.'], a:1,
-      tip:'Audience, tone, deadline and structure: the more context, the less rewriting.'}
+  const POWERS = {
+    elim: {name:'Eliminate',   charge:.075, dur:8, hint:'Eliminate: work that adds no value disappears'},
+    simp: {name:'Simplify',    charge:.11,  dur:8, hint:'Simplify: complex deals need one tap'},
+    std:  {name:'Standardize', charge:.10,  dur:8, hint:'Standardize: neat lanes, everything slows down'},
+    auto: {name:'Automate',    charge:.09,  dur:8, hint:'Automate: a bot posts routine entries for you'},
+    ai:   {name:'AI',          charge:.06,  dur:6, hint:'AI: the full toolkit clears the screen'}
+  };
+  const TIPS = [
+    'Ask your AI assistant to explain a variance in three bullets (volume, price, one-offs) and to say what it is unsure about.',
+    'Paste a long email thread and ask: "What is being asked of me, by when, and what is still open?"',
+    'Let AI draft the reminder to business controllers: give it the audience, the deadline and the list of what is missing.',
+    'Ask AI to turn your close checklist into a table with owner, due day and status. Then check it, don’t just trust it.',
+    'Before you post an AI suggestion, ask it to show its calculation and the source it used.',
+    'Use AI to summarise a contract for revenue recognition: obligations, payment terms, acceptance clauses, with clause numbers.',
+    'Give AI an example of a good commentary and ask it to write this month’s in the same style. Context beats clever prompts.',
+    'Only put confidential or personal data into the AI tools your company has approved.',
+    'Ask AI: "Which of these 20 reconciling items look unusual compared with last month, and why?"',
+    'Stuck on an Excel formula? Describe what you want in plain words and ask AI for the formula and an explanation.'
   ];
 
-  let G = null, raf = 0, last = 0;
+  let G = null, last = 0;
 
   function newGame(name){
-    G = {name, act:-1, score:0, actScore:[0, 0, 0], items:[], up:{}, correct:0, playMs:0,
-      st:{posted:0, missed:0, bot:0, aiPosted:0, stream:0, caught:0, missedErr:0, falseRej:0, manualMs:[], actMissed:[0, 0, 0], actPosted:[0, 0, 0]},
-      fx:[], tutDone:false, paused:false, playing:false};
+    const pw = {}; for (const k of Object.keys(POWERS)) pw[k] = {f:0, active:0, ready:false};
+    G = {name, t:-2.6, score:0, items:[], fx:[], pw, playing:true, paused:false,
+      st:{manual:0, bot:0, ai:0, elim:0, missed:0, powers:0},
+      acc:.3, bot:0, aiTick:0, aiOffer:false, aiPreviewUsed:false, aiPreview:0, hints:{}, banner:null, xMsg:0, lineFlash:0, count:3};
   }
 
-  function startAct(i){
-    const A = ACTS[i];
-    Object.assign(G, {act:i, el:-2.6, items:[], acc:.4, accC:0, accAI:0, accS:0, bot:0, playing:true, paused:false, fx:[], streamPts:0, lineFlash:0});
-    $('h-act').textContent = A.n; $('h-actname').textContent = A.name;
-    show('s-play'); setScene(.56, .82, i === 2 ? .7 : .5, [.35, .6, 1][i]);
-    AU.mood(A.mood, i === 2 ? .85 : .75); AU.sfx('act'); AU.sfx('riser');
-    hud(true);
+  function startGame(){
+    try { startGameInner(); }
+    catch(e){ console.error(e); const f = $('fatal'); f.hidden = false; f.textContent = 'The game could not start (' + e.message + '). Please reload the page with Ctrl+F5 / Cmd+Shift+R, or try another browser.'; }
   }
+  function startGameInner(){
+    const name = $('name').value.trim().replace(/\s+/g, ' ').slice(0, 24);
+    if (!name){ show('s-home'); $('err').textContent = 'Enter your name so we can find you on the leaderboard.'; $('name').focus(); return; }
+    $('err').textContent = ''; store.set('name', name);
+    AU.start(); newGame(name);
+    show('s-play'); $('pause').hidden = false; setScene(.5, .8, .55, .35);
+    AU.mood(1500, .75); AU.sfx('riser');
+    renderPowers(true); hud(true);
+  }
+
+  const mult = () => 1 + 2 * clamp(G.t / CFG.dur, 0, 1);
+  function addScore(p, x, y, col, txt){
+    G.score = Math.max(0, G.score + p);
+    if (txt !== false) G.fx.push({x, y, txt:txt || '+' + fmt(p), col, life:.9});
+  }
+  function banner(txt, col, dur){ G.banner = {txt, col:col || '#5fd6f5', t:dur || 2.6}; }
+  function hint(key, txt, col){ if (G.hints[key]) return; G.hints[key] = 1; banner(txt, col); }
+  function remove(it){ const i = G.items.indexOf(it); if (i >= 0) G.items.splice(i, 1); }
+  const lanes = () => [L.x0 + 6, (L.x0 + L.x1 - CW) / 2, L.x1 - CW - 6];
 
   function spawnCard(k){
-    const up = G.up;
+    const std = G.pw.std.active > 0;
     let x, tries = 0;
-    const lanes = up.std ? [L.x0 + 6, (L.x0 + L.x1 - CW) / 2, L.x1 - CW - 6] : null;
-    do {
-      x = lanes ? pick(lanes) : rand(L.x0 + 6, L.x1 - CW - 6);
-      tries++;
-    } while (tries < 8 && G.items.some(o => o.y < L.top + CH * 1.3 && Math.abs(o.x - x) < CW * .9));
-    const it = {k, x, y:L.top - CH - 6, born:performance.now(), hit:0, sp:1};
-    if (k === 'R'){ it.taps = 1; it.sub = pick(KIND.R.subs); }
-    else if (k === 'C'){ it.taps = up.simp ? 2 : 3; it.sub = pick(KIND.C.subs); }
-    else {
-      it.taps = 1; it.what = pick(AI_WHAT);
-      if (k === 'OK'){ it.conf = Math.round(rand(91, 99)); it.sub = it.conf + '% confident'; }
-      else { it.conf = Math.round(rand(48, 76)); it.sub = it.conf + '% · ' + pick(AI_FLAG); }
-    }
-    if (G.act === 0 && !G.tutDone && !G.items.some(o => o.tut)) it.tut = true;
+    do { x = std ? pick(lanes()) : rand(L.x0 + 6, L.x1 - CW - 6); tries++; }
+    while (tries < 8 && G.items.some(o => o.y < L.top + CH * 1.3 && Math.abs(o.x - x) < CW * .9));
+    const it = {k, x, tx:x, y:L.top - CH - 6, hit:0};
+    it.taps = k === 'C' ? (G.pw.simp.active > 0 ? 1 : 3) : 1;
+    it.sub = pick(KIND[k].subs);
+    if (G.t < 8 && !G.hints.tut && k === 'R') it.tut = true;
     G.items.push(it);
   }
 
-  function addScore(p, x, y, col, txt){
-    G.score = Math.max(0, G.score + p); G.actScore[G.act] += p;
-    G.fx.push({x, y, txt:txt || ((p >= 0 ? '+' : '') + fmt(p)), col, life:.9});
+  function postBy(it, who){
+    const m = mult(), cx = it.x + CW / 2, cy = it.y + CH / 2;
+    if (who === 'hand'){
+      const p = Math.round((it.k === 'C' ? 30 : 10) * m); G.st.manual++;
+      addScore(p, cx, it.y, KIND[it.k].col); burst(cx, cy, 14, KIND[it.k].col, true); AU.sfx('post');
+      for (const k of Object.keys(POWERS)){
+        if (k === 'ai' && !aiUnlocked()) continue;
+        const P = G.pw[k]; if (P.active > 0) continue;
+        P.f = Math.min(1, P.f + POWERS[k].charge * (it.k === 'C' ? 1.6 : 1));
+      }
+      if (it.tut){ G.hints.tut = 1; }
+    } else if (who === 'bot'){
+      G.st.bot++; addScore(Math.round(5 * m), cx, it.y, '#4fe0a0', 'BOT +' + Math.round(5 * m)); burst(cx, cy, 6, '#4fe0a0', true); AU.sfx('bot');
+    } else {
+      G.st.ai++; addScore(Math.round(10 * m), cx, it.y, '#c4b5fd', false); streak(cx, cy); burst(cx, cy, 4, '#c4b5fd', true);
+    }
+    remove(it);
   }
-  function remove(it){ const i = G.items.indexOf(it); if (i >= 0) G.items.splice(i, 1); }
-  function postManual(it){
-    const A = ACTS[G.act], p = (it.k === 'C' ? 30 : 10) * A.mult;
-    G.st.posted++; G.st.actPosted[G.act]++; G.st.manualMs.push(performance.now() - it.born);
-    addScore(p, it.x + CW / 2, it.y, KIND[it.k].col);
-    burst(it.x + CW / 2, it.y + CH / 2, 14, KIND[it.k].col, true); AU.sfx('post'); remove(it);
-    if (it.tut) G.tutDone = true;
+
+  /* ---------- powers ---------- */
+  function usePower(k){
+    if (!G || !G.playing || G.paused || G.t < 0) return;
+    if (k === 'ai'){
+      if (G.aiOffer && !aiUnlocked()) return aiPreview();
+      if (!aiUnlocked()){ AU.sfx('lock'); hint('ailock', 'AI unlocks in January 🔒', '#a78bfa'); return; }
+    }
+    const P = G.pw[k]; if (!P || P.f < 1 || P.active > 0) return;
+    P.f = 0; P.active = POWERS[k].dur; G.st.powers++;
+    AU.sfx(k === 'elim' ? 'elim' : k === 'ai' ? 'ai' : 'power'); V.flash = Math.max(V.flash, .25);
+    banner(POWERS[k].hint, k === 'ai' ? '#a78bfa' : '#4fe0a0', 2.2);
+    if (k === 'elim'){
+      const pool = G.items.filter(it => it.k !== 'X' && it.y > L.top - CH).sort(() => Math.random() - .5);
+      const n = Math.ceil(pool.length * .45);
+      for (const it of pool.slice(0, n)){
+        G.st.elim++; addScore(Math.round(5 * mult()), it.x + CW / 2, it.y, '#ffffff', 'ELIMINATED');
+        burst(it.x + CW / 2, it.y + CH / 2, 18, '#ffffff', false); remove(it);
+      }
+      V.shake = .25;
+    } else if (k === 'simp'){
+      for (const it of G.items) if (it.k === 'C') it.taps = Math.min(it.taps, 1);
+    } else if (k === 'std'){
+      const ln = lanes(); for (const it of G.items) it.tx = ln.reduce((a, b) => Math.abs(b - it.x) < Math.abs(a - it.x) ? b : a);
+    } else if (k === 'ai'){
+      V.aiGlow = 1;
+    }
+    renderPowers(true);
+  }
+  function aiPreview(){
+    G.aiOffer = false; G.aiPreviewUsed = true; G.aiPreview = 3; V.aiGlow = 1; V.flash = .6; G.st.powers++;
+    AU.sfx('ai'); AU.mood(20000, .9, .2);
+    banner('AI PREVIEW · 3 seconds of the full toolkit', '#a78bfa', 3);
+    renderPowers(true);
   }
 
   function update(dt){
-    const A = ACTS[G.act], up = G.up;
-    G.el += dt;
-    if (G.el < 0) return;                       // act intro running
-    G.playMs += dt * 1000;
-    const p = clamp(G.el / A.dur, 0, 1);
-    let rate = 0, fall = 4, cShare = 0;
-    if (G.act === 0){ rate = .9 + 2.6 * Math.pow(p, 1.3); fall = 4.6 - 1.0 * p; cShare = .18; }
-    else if (G.act === 1){ rate = (2.6 + 1.6 * p) * (up.elim ? .65 : 1); fall = 4.2 - .7 * p; cShare = .28; }
-    else { fall = 4.4 - .6 * p; }
-    if (up.std) fall *= 1.15;
+    // countdown before the clock starts
+    if (G.t < 0){
+      const before = Math.ceil(-G.t); G.t += dt;
+      if (G.t >= 0){ AU.sfx('go'); AU.mood(2000, .78); hint('tut0', 'Tap entries before they hit the close line', '#5fd6f5'); }
+      else if (Math.ceil(-G.t) !== before) AU.sfx('count');
+      return;
+    }
+    G.t += dt;
+    const p = clamp(G.t / CFG.dur, 0, 1), m = mult();
+    // music opens up as the pressure builds
+    if (!G.aiPreview && Math.floor(G.t) !== Math.floor(G.t - dt)) AU.mood(1800 + 16000 * p * p, .78);
+    setScene(.5, .8, .55, .35 + .65 * p);
 
-    if (G.act < 2){
-      G.acc += rate * dt;
-      while (G.acc >= 1){ spawnCard(Math.random() < cShare ? 'C' : 'R'); G.acc--; }
-    } else {
-      const cRate = (.45 + .35 * p) * (up.elim ? .8 : 1), aiRate = 1.2 + 1.2 * p, errShare = [.38, .3, .22][G.correct], sRate = 8 + 22 * p;
-      G.accC += cRate * dt; while (G.accC >= 1){ spawnCard('C'); G.accC--; }
-      G.accAI += aiRate * dt; while (G.accAI >= 1){ spawnCard(Math.random() < errShare ? 'ERR' : 'OK'); G.accAI--; }
-      G.accS += sRate * dt;
-      while (G.accS >= 1){
-        G.accS--; G.st.stream++;
-        if (!reduced && V.streaks.length < 160) V.streaks.push({x:rand(0, W), y:rand(-20, H * .25), k:0, v:rand(.9, 1.5), col:Math.random() < .5 ? 'rgba(95,214,245,.8)' : 'rgba(167,139,250,.8)'});
-        const acc = (G.st.caught + 1) / (G.st.caught + G.st.missedErr + 1);
-        G.streamPts += 2 * A.mult * acc;
-      }
-      if (G.streamPts >= 1){ const w = Math.floor(G.streamPts); G.streamPts -= w; G.score += w; G.actScore[2] += w; }
+    // spawning
+    let rate = 1.0 + 3.2 * Math.pow(p, 1.25);
+    if (G.pw.elim.active > 0) rate *= .6;
+    G.acc += rate * dt;
+    while (G.acc >= 1){
+      G.acc--; const r = Math.random();
+      spawnCard(G.t > 20 && r < .1 ? 'X' : G.t > 8 && r < .32 ? 'C' : 'R');
     }
 
-    // movement & close line
-    const vy = (L.line - L.top + CH) / fall;
+    // power timers
+    for (const k of Object.keys(POWERS)){
+      const P = G.pw[k];
+      if (P.active > 0){ P.active -= dt; if (P.active <= 0){ P.active = 0; if (k === 'ai') V.aiGlow = 0; } }
+      const ready = P.f >= 1 && P.active === 0 && (k !== 'ai' || aiUnlocked());
+      if (ready && !P.ready){ AU.sfx('ready'); hint('ready', POWERS[k].name + ' is charged: tap it!', '#5fd6f5'); }
+      P.ready = ready;
+    }
+    // the one-time AI preview offer during the busiest part of season 1
+    if (!aiUnlocked() && !G.aiPreviewUsed && !G.aiOffer && ((G.t > 48 && G.items.length >= 7) || G.t > 68)){
+      G.aiOffer = true; banner('AI PREVIEW AVAILABLE · tap the AI button', '#a78bfa', 3.2); AU.sfx('ready');
+    }
+    // nudge when manual work alone isn't enough
+    if (G.st.missed >= 3 && !G.st.powers) hint('nudge', 'Manual alone can’t keep up. Use your ESSA powers.', '#ff5d73');
+
+    // movement
+    const fallT = (4.6 - 1.4 * p) * (G.pw.std.active > 0 ? 1.6 : 1);
+    const vy = (L.line - L.top + CH) / fallT;
     for (let i = G.items.length - 1; i >= 0; i--){
-      const it = G.items[i]; it.y += vy * it.sp * dt; it.hit = Math.max(0, it.hit - dt);
+      const it = G.items[i];
+      it.y += vy * dt; it.hit = Math.max(0, it.hit - dt);
+      if (G.pw.std.active > 0 && it.tx != null) it.x = lerp(it.x, it.tx, 1 - Math.pow(.001, dt));
+      // in season 2 an AI agent processes AI-ready work by itself
+      if (it.k === 'X' && aiUnlocked() && it.y > L.top + (L.line - L.top) * .35){ postBy(it, 'ai'); continue; }
       if (it.y + CH < L.line) continue;
       G.items.splice(i, 1);
-      if (it.k === 'OK'){
-        G.st.aiPosted++; addScore(15 * A.mult, it.x + CW / 2, L.line - 10, KIND.OK.col, 'AI ✓');
-        burst(it.x + CW / 2, L.line - 10, 8, KIND.OK.col, true);
-      } else if (it.k === 'ERR'){
-        G.st.missedErr++; addScore(-150, it.x + CW / 2, L.line - 12, '#ff5d73', 'MISSTATEMENT −150');
-        V.glitch = .35; V.shake = .3; AU.sfx('misstate'); burst(it.x + CW / 2, L.line, 16, '#ff5d73', false);
+      if (it.k === 'X'){
+        if (G.t - G.xMsg > 6){ G.xMsg = G.t; G.fx.push({x:it.x + CW / 2, y:L.line - 12, txt:'AI could do this · January', col:'#a78bfa', life:1.2}); }
+        burst(it.x + CW / 2, L.line, 6, '#8d98c9', false);
       } else {
-        G.st.missed++; G.st.actMissed[G.act]++; V.shake = .25; G.lineFlash = .5;
+        G.st.missed++; V.shake = .2; G.lineFlash = .5;
         G.fx.push({x:it.x + CW / 2, y:L.line - 12, txt:'MISSED', col:'#ff5d73', life:.8});
         AU.sfx('late'); burst(it.x + CW / 2, L.line, 10, '#ff5d73', false);
-        if (it.tut) G.tutDone = true;
       }
     }
+
     // Automate: bot posts routine entries
-    if (up.auto){
-      G.bot += 1.5 * dt;
+    if (G.pw.auto.active > 0){
+      G.bot += 3 * dt;
       while (G.bot >= 1){
         let best = null; for (const it of G.items) if (it.k === 'R' && it.y > L.top - 10 && (!best || it.y > best.y)) best = it;
         if (!best){ G.bot = 1; break; }
-        G.bot--; G.st.bot++; addScore(5 * A.mult, best.x + CW / 2, best.y, '#4fe0a0', 'BOT +' + 5 * A.mult);
-        burst(best.x + CW / 2, best.y + CH / 2, 6, '#4fe0a0', true); AU.sfx('bot'); remove(best);
+        G.bot--; postBy(best, 'bot');
+      }
+    } else G.bot = 0;
+
+    // AI (preview in season 1, the real power in season 2): posts everything, fast
+    const aiOn = G.aiPreview > 0 || G.pw.ai.active > 0;
+    if (G.aiPreview > 0){
+      G.aiPreview -= dt;
+      if (G.aiPreview <= 0){
+        G.aiPreview = 0; V.aiGlow = 0; AU.mood(1800 + 16000 * p * p, .78, .8);
+        banner('That was 3 seconds of AI. The full toolkit unlocks in January.', '#a78bfa', 4);
+        renderPowers(true);
       }
     }
+    if (aiOn){
+      G.aiTick -= dt;
+      while (G.aiTick <= 0){
+        G.aiTick += .07;
+        let best = null; for (const it of G.items) if (it.y > L.top - CH && (!best || it.y > best.y)) best = it;
+        if (best) postBy(best, 'ai'); else { G.aiTick = .07; break; }
+      }
+      if (Math.random() < .6) streak(rand(0, W), rand(-20, H * .3));
+    }
+
     for (let i = G.fx.length - 1; i >= 0; i--){ const f = G.fx[i]; f.life -= dt; f.y -= 30 * dt; if (f.life <= 0) G.fx.splice(i, 1); }
     G.lineFlash = Math.max(0, G.lineFlash - dt);
+    if (G.banner){ G.banner.t -= dt; if (G.banner.t <= 0) G.banner = null; }
+    V.aiGlow = Math.max(aiOn ? 1 : 0, V.aiGlow - dt);
 
-    if (G.el >= A.dur) actDone();
+    if (G.t >= CFG.dur) finish();
   }
 
   function drawGame(){
-    const A = ACTS[G.act];
-    // close line (laser)
     const lf = G.lineFlash || 0;
     g.save(); g.globalCompositeOperation = 'lighter';
     const lg = g.createLinearGradient(0, L.line - 18, 0, L.line + 18);
@@ -503,11 +555,16 @@
     g.fillStyle = 'rgba(255,170,185,' + Math.min(1, .85 + lf * .3) + ')'; g.fillRect(0, L.line - .75, W, 1.5);
     g.restore();
     g.fillStyle = 'rgba(255,120,140,.75)'; g.font = '600 10px "IBM Plex Mono", monospace'; g.textAlign = 'center';
-    g.fillText('P E R I O D - E N D   C L O S E', W / 2, L.line + 22);
+    g.fillText('P E R I O D - E N D   C L O S E', W / 2, L.line + 20);
 
+    if (G.pw.std.active > 0){
+      g.save(); g.strokeStyle = 'rgba(79,224,160,.18)'; g.setLineDash([6, 8]); g.lineWidth = 1;
+      for (const x of lanes()){ g.strokeRect(x, L.top, CW, L.line - L.top); }
+      g.restore();
+    }
     for (const it of G.items){
       g.drawImage(sprite(it), it.x - PAD, it.y - PAD, CW + PAD * 2, CH + PAD * 2);
-      if (it.tut){
+      if (it.tut && !G.hints.tut){
         const pr = (V.t * 1.4) % 1;
         g.strokeStyle = 'rgba(95,214,245,' + (1 - pr) + ')'; g.lineWidth = 2;
         rr(g, it.x - pr * 10, it.y - pr * 10, CW + pr * 20, CH + pr * 20, 14); g.stroke();
@@ -519,55 +576,77 @@
     for (const f of G.fx){ g.globalAlpha = clamp(f.life * 1.6, 0, 1); g.fillStyle = f.col; g.font = '600 13px "IBM Plex Mono", monospace'; g.fillText(f.txt, f.x, f.y); }
     g.globalAlpha = 1;
 
-    // act intro title
-    if (G.el < 0){
-      const k = G.el + 2.6, a = clamp(Math.min(k * 2, -G.el * 2), 0, 1);
-      g.globalAlpha = a; g.textAlign = 'center';
-      g.fillStyle = '#5fd6f5'; g.font = '600 13px "IBM Plex Mono", monospace'; g.fillText(A.n.split('').join(' '), W / 2, H * .36);
-      g.shadowColor = 'rgba(95,214,245,.8)'; g.shadowBlur = 24; g.fillStyle = '#ffffff';
-      g.font = '800 ' + Math.round(Math.min(64, W * .14)) + 'px "Sora", sans-serif'; g.fillText(A.name, W / 2, H * .36 + 58);
-      g.shadowBlur = 0; g.fillStyle = '#c9d2ff'; g.font = '500 14px "IBM Plex Sans", sans-serif';
-      wrapText(A.rule, W / 2, H * .36 + 92, Math.min(W - 40, 380), 20);
-      g.fillStyle = '#5fd6f5'; g.font = '600 15px "IBM Plex Mono", monospace'; g.fillText(String(Math.ceil(-G.el)), W / 2, H * .36 + 150);
+    if (G.banner){
+      const b = G.banner, a = clamp(b.t * 2, 0, 1), y = L.top + 14;
+      g.globalAlpha = a; g.font = '600 13px "IBM Plex Sans", sans-serif';
+      const w = Math.min(W - 24, g.measureText(b.txt).width + 32);
+      g.fillStyle = 'rgba(6,10,34,.88)'; rr(g, W / 2 - w / 2, y, w, 32, 16); g.fill();
+      g.strokeStyle = b.col; g.lineWidth = 1; rr(g, W / 2 - w / 2 + .5, y + .5, w - 1, 31, 16); g.stroke();
+      g.fillStyle = b.col; g.textBaseline = 'middle'; g.fillText(b.txt, W / 2, y + 16.5, w - 20); g.textBaseline = 'alphabetic';
       g.globalAlpha = 1;
     }
-  }
-  function wrapText(t, x, y, mw, lh){
-    const words = t.split(' '); let line = '';
-    for (const w of words){ const test = line ? line + ' ' + w : w; if (g.measureText(test).width > mw && line){ g.fillText(line, x, y); line = w; y += lh; } else line = test; }
-    if (line) g.fillText(line, x, y);
+    if (G.t < 0){
+      const n = Math.ceil(-G.t), k = -G.t - (n - 1);
+      g.globalAlpha = clamp(k * 1.5, 0, 1); g.textAlign = 'center';
+      g.fillStyle = '#5fd6f5'; g.font = '600 13px "IBM Plex Mono", monospace'; g.fillText('9 0 - S E C O N D   C L O S E', W / 2, H * .36);
+      g.shadowColor = 'rgba(95,214,245,.8)'; g.shadowBlur = 30; g.fillStyle = '#fff';
+      g.font = '800 ' + Math.round(Math.min(110, W * .26)) + 'px "Sora", sans-serif'; g.fillText(String(n), W / 2, H * .36 + 100);
+      g.shadowBlur = 0; g.globalAlpha = 1;
+    }
   }
 
   let hudCache = {};
   function hud(force){
     if (force) hudCache = {};
-    const A = ACTS[G.act], s = G.st;
+    const left = Math.max(0, Math.ceil(CFG.dur - Math.max(0, G.t)));
+    const clock = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+    if (hudCache.clock !== clock){ hudCache.clock = clock; $('h-clock').textContent = clock; }
     if (hudCache.score !== G.score){ hudCache.score = G.score; $('h-score').textContent = fmt(G.score); }
-    $('h-time').style.transform = 'scaleX(' + clamp(1 - Math.max(0, G.el) / A.dur, 0, 1) + ')';
-    let html;
-    if (G.act < 2) html = '<span>Posted <b>' + s.actPosted[G.act] + '</b></span><span class="' + (s.actMissed[G.act] ? 'bad' : '') + '">Missed <b>' + s.actMissed[G.act] + '</b></span>' + (G.up.auto ? '<span class="good">Bot <b>' + s.bot + '</b></span>' : '');
-    else html = '<span class="good">AI posted <b>' + fmt(s.stream + s.aiPosted) + '</b></span><span>Caught <b>' + s.caught + '</b></span><span class="' + (s.missedErr ? 'bad' : '') + '">Errors <b>' + s.missedErr + '</b></span>';
+    $('h-time').style.transform = 'scaleX(' + clamp(1 - Math.max(0, G.t) / CFG.dur, 0, 1) + ')';
+    const s = G.st, posted = s.manual + s.bot + s.ai;
+    const html = '<span>Posted <b>' + fmt(posted) + '</b></span><span class="' + (s.missed ? 'bad' : '') + '">Missed <b>' + s.missed + '</b></span><span>×<b>' + mult().toFixed(1) + '</b></span>';
     if (hudCache.stats !== html){ hudCache.stats = html; $('h-stats').innerHTML = html; }
+    renderPowers();
   }
+  function renderPowers(force){
+    if (!G) return;
+    document.querySelectorAll('.pw').forEach(b => {
+      const k = b.dataset.p, P = G.pw[k], D = POWERS[k];
+      const f = P.active > 0 ? P.active / D.dur : P.f;
+      const state = (P.active > 0 ? 'a' : P.ready ? 'r' : '') + (k === 'ai' ? (G.aiOffer ? 'o' : '') + (G.aiPreview > 0 ? 'p' : '') : '') + Math.round(f * 40);
+      if (!force && b._st === state) return; b._st = state;
+      b.style.setProperty('--f', f.toFixed(3));
+      b.classList.toggle('active', P.active > 0 || (k === 'ai' && G.aiPreview > 0));
+      b.classList.toggle('ready', !!P.ready);
+      if (k === 'ai'){
+        b.classList.toggle('locked', !aiUnlocked() && !G.aiOffer && !(G.aiPreview > 0));
+        b.classList.toggle('offer', !!G.aiOffer);
+        $('pw-ai-t').textContent = aiUnlocked() ? 'Agent' : G.aiOffer ? 'Preview' : G.aiPreview > 0 ? 'Live' : 'Jan';
+      }
+    });
+  }
+  document.querySelectorAll('.pw').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); usePower(b.dataset.p); }));
+  document.addEventListener('keydown', e => {
+    if (!G || !G.playing) return;
+    const map = {'1':'elim', '2':'simp', '3':'std', '4':'auto', '5':'ai'};
+    if (map[e.key]) usePower(map[e.key]);
+    else if (e.key === 'Escape' || e.key === 'p') G.paused ? resume() : pause();
+  });
 
   /* ---------- input ---------- */
   cv.addEventListener('pointerdown', e => {
-    if (!G || !G.playing || G.paused || G.el < 0) return;
+    if (!G || !G.playing || G.paused || G.t < 0) return;
     e.preventDefault();
     const px = e.clientX, py = e.clientY, pad = 12; let best = null;
     for (const it of G.items) if (px >= it.x - pad && px <= it.x + CW + pad && py >= it.y - pad && py <= it.y + CH + pad && (!best || it.y > best.y)) best = it;
     if (!best) return;
-    const cx = best.x + CW / 2;
-    if (best.k === 'ERR'){
-      G.st.caught++; addScore(120, cx, best.y, '#4fe0a0', 'CAUGHT +120'); AU.sfx('caught');
-      burst(cx, best.y + CH / 2, 16, '#4fe0a0', false); remove(best); return;
-    }
-    if (best.k === 'OK'){
-      G.st.falseRej++; addScore(-40, cx, best.y, '#ffb84d', 'REWORK −40'); AU.sfx('reject');
-      burst(cx, best.y + CH / 2, 8, '#ffb84d', false); remove(best); return;
+    if (best.k === 'X'){
+      AU.sfx('lock'); best.hit = .12;
+      G.fx.push({x:best.x + CW / 2, y:best.y - 4, txt:'🔒 AI unlocks in January', col:'#a78bfa', life:1});
+      return;
     }
     best.taps--; best.hit = .12;
-    if (best.taps <= 0) postManual(best); else AU.sfx('tap');
+    if (best.taps <= 0) postBy(best, 'hand'); else AU.sfx('tap');
   });
 
   /* ---------- pause ---------- */
@@ -575,158 +654,64 @@
   function resume(){ if (!G || !G.paused) return; G.paused = false; $('pausebox').hidden = true; if (AU.on) AU.start(); }
   $('pause').addEventListener('click', pause);
   $('resume').addEventListener('click', resume);
+  $('quit').addEventListener('click', () => { $('pausebox').hidden = true; goHome(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
-  document.addEventListener('keydown', e => { if ((e.key === 'Escape' || e.key === 'p') && G && G.playing) G.paused ? resume() : pause(); });
 
   /* ================= main loop ================= */
   function frame(now){
     const dt = clamp((now - last) / 1000 || 0, 0, .05); last = now;
     V.t += dt;
-    // ease the scene toward its target
     const k = 1 - Math.pow(.02, dt);
     for (const p of ['y', 'r', 'a', 'i']) V.cur[p] = lerp(V.cur[p], V.tgt[p], k);
     if (V.beam > 0 && V.beam < 1){ V.beam = Math.min(1, V.beam + dt / 1.1); if (V.beam >= 1){ V.flash = 1; AU.sfx('impact'); } }
-    V.flash = Math.max(0, V.flash - dt * 1.4); V.shake = Math.max(0, V.shake - dt); V.glitch = Math.max(0, V.glitch - dt);
+    V.flash = Math.max(0, V.flash - dt * 1.4); V.shake = Math.max(0, V.shake - dt);
 
     if (G && G.playing && !G.paused) update(dt);
 
     const sh = V.shake > 0 && !reduced;
-    g.save(); if (sh) g.translate(rand(-1, 1) * V.shake * 14, rand(-1, 1) * V.shake * 14);
+    g.save(); if (sh) g.translate(rand(-1, 1) * V.shake * 12, rand(-1, 1) * V.shake * 12);
     drawBackground(dt); drawWafer(); drawBeam(); drawParticles(dt);
     if (G && G.playing) drawGame();
     g.restore();
     if (V.flash > 0){ g.fillStyle = 'rgba(200,235,255,' + V.flash * .5 + ')'; g.fillRect(0, 0, W, H); }
-    if (V.glitch > 0 && !reduced){
-      for (let i = 0; i < 6; i++){ const y = Math.random() * H, h = rand(4, 20);
-        g.drawImage(cv, 0, y * DPR, W * DPR, h * DPR, rand(-18, 18), y, W, h); }
-      g.fillStyle = 'rgba(255,60,90,' + V.glitch * .25 + ')'; g.fillRect(0, 0, W, H);
-    }
     if (G && G.playing) hud();
-    raf = requestAnimationFrame(frame);
+    requestAnimationFrame(frame);
   }
 
-  /* ================= screens & panels ================= */
+  /* ================= screens ================= */
   function show(id){
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
     const s = $(id); if (s && s.scrollTo) s.scrollTo(0, 0);
   }
-  function panel(build){
-    const p = $('panel'); p.textContent = ''; p.style.animation = 'none'; void p.offsetWidth; p.style.animation = '';
-    build(p); show('s-panel');
-  }
   function el(tag, cls, html){ const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
-  function statGrid(items){ const d = el('div', 'stats'); items.forEach(([v, l, c]) => { const x = el('div', c || ''); x.append(el('b', '', String(v)), el('span', '', l)); d.appendChild(x); }); return d; }
-  function button(txt, fn, cls){ const b = el('button', 'btn ' + (cls || 'primary'), '<span>' + txt + '</span>'); b.type = 'button'; b.addEventListener('click', fn); return b; }
-
-  function actDone(){
-    G.playing = false; const i = G.act, s = G.st;
-    const clean = s.actMissed[i] === 0 && i < 2;
-    if (clean){ G.score += 250 * ACTS[i].mult; G.actScore[i] += 250 * ACTS[i].mult; }
-    G.items = []; V.streaks.length = 0;
-    setScene(.62, .92, .8, .55); AU.mood(1200, .7);
-    if (i === 0) panelAfter1(clean);
-    else if (i === 1) panelAfter2(clean);
-    else finish();
-  }
-
-  function panelAfter1(clean){
-    const s = G.st;
-    panel(p => {
-      p.append(el('div', 'eyebrow', 'Act 1 closed' + (clean ? ' · clean close bonus' : '')),
-        el('h2', '', 'Volume tripled.<br><em>The team didn’t.</em>'),
-        statGrid([[s.actPosted[0], 'entries posted by hand'], [s.actMissed[0], 'missed the close', s.actMissed[0] ? 'bad' : 'good'], [fmt(G.actScore[0]), 'points']]),
-        el('p', '', 'In 40 seconds the volume grew from one entry a second to more than three. That is the trend we face: you cannot close it by adding people.'),
-        el('p', '', '<b>First, fix the process.</b> ESSA: eliminate, simplify, standardize, automate. Pick the two improvements you want for Act 2.'),
-        button('Choose your ESSA improvements', panelEssa));
-    });
-  }
-  function panelEssa(){
-    const chosen = new Set();
-    panel(p => {
-      const go = button('Pick 2 improvements', () => { ESSA.forEach(x => { G.up[x.k] = chosen.has(x.k); }); startAct(1); });
-      go.disabled = true;
-      const list = el('div', 'picks');
-      ESSA.forEach(x => {
-        const b = el('button', 'pick'); b.type = 'button'; b.setAttribute('aria-pressed', 'false');
-        b.append(el('span', 'L', x.L), el('strong', '', x.name), el('span', '', x.d));
-        b.addEventListener('click', () => {
-          if (chosen.has(x.k)) chosen.delete(x.k); else if (chosen.size < 2) chosen.add(x.k); else return;
-          AU.sfx('pick');
-          list.querySelectorAll('.pick').forEach((pb, j) => { const on = chosen.has(ESSA[j].k); pb.setAttribute('aria-pressed', on); pb.disabled = !on && chosen.size >= 2; });
-          go.disabled = chosen.size !== 2; go.querySelector('span').textContent = chosen.size === 2 ? 'Start Act 2' : 'Pick ' + (2 - chosen.size) + ' more';
-        });
-        list.appendChild(b);
-      });
-      p.append(el('div', 'eyebrow', 'ESSA'), el('h2', '', 'Fix the process <em>before</em> you speed it up.'), list, go);
-    });
-  }
-  function panelAfter2(clean){
-    const s = G.st;
-    panel(p => {
-      p.append(el('div', 'eyebrow', 'Act 2 closed' + (clean ? ' · clean close bonus' : '')),
-        el('h2', '', 'ESSA bought you time.<br><em>Volume keeps growing.</em>'),
-        statGrid([[s.actPosted[1], 'posted by hand'], [s.bot, 'posted by the bot', 'good'], [s.actMissed[1], 'missed the close', s.actMissed[1] ? 'bad' : 'good']]),
-        el('p', '', 'A better process helps, but the volume will grow several times over in the coming years. The next step: work <b>AI-native</b>. AI does the volume, you direct it and check its work.'),
-        el('p', '', 'How well the AI performs depends on how well you instruct it. Two quick questions: every right answer makes the AI more accurate in Act 3.'),
-        button('Upskill: 2 questions', () => quiz(0)));
-    });
-  }
-  let quizSet = [];
-  function quiz(n){
-    if (n === 0){ const pool = QUESTIONS.slice(); quizSet = []; while (quizSet.length < 2) quizSet.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]); G.correct = 0; }
-    const Q = quizSet[n];
-    panel(p => {
-      const dots = el('div', 'dots'); for (let i = 0; i < 2; i++) dots.appendChild(el('i', i <= n ? 'on' : ''));
-      const opts = el('div', 'opts'), after = el('div', '');
-      after.style.display = 'flex'; after.style.flexDirection = 'column'; after.style.gap = '14px';
-      Q.o.forEach((t, j) => {
-        const b = el('button', 'opt'); b.type = 'button'; b.textContent = t;
-        b.addEventListener('click', () => {
-          const ok = j === Q.a; if (ok) G.correct++;
-          AU.sfx(ok ? 'right' : 'wrong');
-          opts.querySelectorAll('.opt').forEach((ob, k) => { ob.disabled = true; if (k === Q.a) ob.classList.add('right'); else if (k === j) ob.classList.add('wrong'); });
-          after.append(el('p', 'tip', (ok ? '<b>Right.</b> ' : '<b>Not quite.</b> ') + Q.tip),
-            button(n === 0 ? 'Next question' : 'See your AI precision', () => n === 0 ? quiz(1) : panelAct3()));
-        });
-        opts.appendChild(b);
-      });
-      p.append(el('div', 'eyebrow', 'Upskill · question ' + (n + 1) + ' of 2'), dots, el('p', 'q', Q.q), opts, after);
-    });
-  }
-  function panelAct3(){
-    const prec = [62, 70, 78][G.correct];
-    panel(p => {
-      const lg = el('div', 'legend');
-      [['#a78bfa', 'Complex deal', 'Revenue split · €4.1M', 'Still needs a person. Tap it to post (' + (G.up.simp ? 2 : 3) + ' taps).'],
-       ['#4fe0a0', 'AI draft · Accrual', '96% confident', 'Correct. Leave it: the AI posts it at the line.'],
-       ['#ffb84d', 'AI draft · Reclass', '58% · VAT code? ⚠', 'An AI error. Tap it to send it back before it is posted.']].forEach(([c, a, b, d]) => {
-        const r = el('div', 'row'), m = el('div', 'mini'); m.style.setProperty('--c', c); m.append(el('b', '', a), el('small', '', b)); r.append(m, el('p', '', d)); lg.appendChild(r);
-      });
-      p.append(el('div', 'eyebrow', 'You answered ' + G.correct + ' of 2 right · AI precision ' + prec + '%'),
-        el('h2', '', 'Act 3: <em>AI-native.</em> You direct, AI executes.'),
-        el('p', '', 'Thousands of routine entries are now posted by AI. Your job changes: handle what needs judgement, and check the AI’s work. A missed AI error costs you <b>150</b> points; rejecting a correct draft costs <b>40</b>.'),
-        lg, button('Start Act 3', () => startAct(2)));
-    });
+  function goHome(){
+    G = null; $('pause').hidden = true; show('s-home'); setScene(.5, .9, 1, .55); AU.mood(700, .75); V.aiGlow = 0; loadBoard('home');
   }
 
   /* ================= end & leaderboard ================= */
   function finish(){
-    const s = G.st, ms = s.manualMs, avg = ms.length >= 30 ? Math.round(ms.reduce((a, b) => a + b, 0) / ms.length) : null;
-    const review = Math.max(0, s.caught - s.falseRej);
-    const posted = s.posted + s.bot + s.aiPosted + s.stream;
-    const run = {p_player:PLAYER, p_name:G.name, p_mode:CFG.mode, p_score:Math.round(G.score), p_version:CFG.version,
-      p_stats:{duration_ms:Math.round(G.playMs), posted, manual:s.posted, bot:s.bot, ai_posted:s.aiPosted, stream:s.stream, missed:s.missed,
-        caught:s.caught, missed_err:s.missedErr, false_rej:s.falseRej, review, avg_ms:avg, quiz:G.correct, essa:Object.keys(G.up).filter(k => G.up[k]).join(',')}};
-    store.set('best', Math.max(store.get('best', 0), run.p_score));
+    G.playing = false; $('pause').hidden = true; V.streaks.length = 0;
+    const s = G.st, posted = s.manual + s.bot + s.ai;
+    const run = {p_player:PLAYER, p_name:G.name, p_mode:modeFor(), p_score:Math.round(G.score), p_version:CFG.version,
+      p_stats:{duration_ms:CFG.dur * 1000, posted, manual:s.manual, bot:s.bot, ai:s.ai, eliminated:s.elim, missed:s.missed, powers:s.powers, preview:G.aiPreviewUsed ? 1 : 0}};
     AU.sfx('end'); AU.mood(3200, .7); setScene(.7, 1, 1, .8);
 
-    $('e-eyebrow').textContent = G.name + ' · season 2026';
-    $('e-title').textContent = s.missedErr === 0 && s.missed === 0 ? 'Flawless close.' : 'Books closed.';
+    $('e-eyebrow').textContent = G.name + ' · ' + (aiUnlocked() ? 'Season 2 · AI unlocked' : 'Season 1 · ESSA');
+    $('e-title').textContent = s.missed === 0 ? 'Flawless close.' : s.missed <= 5 ? 'Books closed.' : 'Closed, just about.';
     const bd = $('e-breakdown'); bd.textContent = '';
-    ACTS.forEach((A, i) => { const d = el('div'); d.append(el('b', '', fmt(G.actScore[i])), el('span', '', 'Act ' + (i + 1) + ' · ' + A.name)); bd.appendChild(d); });
+    [[s.manual, 'by hand'], [s.bot + s.elim, 'by automation & eliminate'], [s.ai, 'by AI']].forEach(([v, l]) => {
+      const d = el('div'); d.append(el('b', '', fmt(v)), el('span', '', l)); bd.appendChild(d); });
     const rk = $('e-ranks'); rk.textContent = '';
-    [['score', '🏆 Score', fmt(run.p_score)], ['speed', '⚡ Fastest', avg ? (avg / 1000).toFixed(2) + ' s' : 'needs 30 posts'], ['review', '🔍 Reviewer', review + ' net']].forEach(([c, t, v]) => {
+    [['score', '🏆 Score', fmt(run.p_score)], ['entries', '📒 Entries', fmt(posted) + ' posted']].forEach(([c, t, v]) => {
       const d = el('div'); d.dataset.cat = c; d.append(el('small', '', t), el('b', '', '–'), el('span', '', v)); rk.appendChild(d); });
+    $('e-tip').textContent = pick(TIPS);
+    if (aiUnlocked()){
+      $('e-lede').innerHTML = 'You closed <b>' + fmt(posted) + '</b> entries in 90 seconds, <b>' + fmt(s.ai) + '</b> of them with AI. ESSA fixes the process; AI multiplies what the team can do.';
+      $('e-tbc').firstChild.textContent = 'The future of the close';
+    } else {
+      $('e-lede').innerHTML = 'You closed <b>' + fmt(posted) + '</b> entries in 90 seconds. ESSA made the difference. ' + (G.aiPreviewUsed ? 'You saw three seconds of AI. ' : '') + 'In January, <b>AI</b> joins the team.';
+      $('e-tbc').firstChild.textContent = 'To be continued';
+    }
     show('s-end'); countUp($('e-score'), run.p_score);
     submitRun(run);
   }
@@ -740,10 +725,11 @@
     const st = $('e-status'); st.textContent = 'Saving your score…';
     try {
       const r = await api.submit(run);
-      if (r && r.ok){ st.textContent = 'Score saved on the leaderboard.'; }
-      else if (r && r.reason === 'season_closed'){ st.textContent = 'The season has closed: this score is not on the leaderboard.'; }
-      else if (r && r.reason === 'too_fast'){ st.textContent = 'Saved too quickly after your last game. Play again in a moment.'; }
-      else { st.textContent = 'This score could not be saved (' + ((r && r.reason) || 'unknown') + ').'; }
+      if (r && r.ok) st.textContent = TEST || PREVIEW_S2 ? 'Test game saved (not on the real leaderboard).' : 'Score saved on the leaderboard.';
+      else if (r && r.reason === 'season_closed') st.textContent = 'The season has closed: this score is not on the leaderboard.';
+      else if (r && r.reason === 'wrong_season') st.textContent = 'A new season has started. Reload the page to play it.';
+      else if (r && r.reason === 'too_fast') st.textContent = 'Saved too quickly after your last game. Play again in a moment.';
+      else st.textContent = 'This score could not be saved (' + ((r && r.reason) || 'unknown') + ').';
     } catch(e){
       const q = store.get('pending', []); q.push(run); store.set('pending', q.slice(-5));
       st.textContent = 'The leaderboard is offline. Your score is kept on this device and sent next time.';
@@ -753,7 +739,7 @@
   async function flushPending(){
     const q = store.get('pending', []); if (!q.length) return;
     const left = [];
-    for (const run of q){ try { await api.submit(run); } catch(e){ left.push(run); } }
+    for (const run of q){ try { const r = await api.submit(run); if (r && r.reason === 'too_fast') left.push(run); } catch(e){ left.push(run); } }
     store.set('pending', left);
   }
   async function loadRanks(){
@@ -788,36 +774,34 @@
   document.querySelectorAll('.tabs').forEach(t => t.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return; boardCat[t.dataset.board] = b.dataset.cat; loadBoard(t.dataset.board);
   }));
+  function applySeason(){
+    const s2 = aiUnlocked();
+    $('h-eyebrow').textContent = 'Finance Operations · ' + (s2 ? 'Season 2 · AI unlocked' : 'Season 1') + (TEST || PREVIEW_S2 ? ' · test' : '');
+    $('pi-ai').classList.toggle('open', s2); $('pi-ai-t').textContent = s2 ? 'Unlocked' : 'January';
+  }
   async function loadSeason(){
     try {
-      const s = await api.season(), end = new Date(s.season_end), days = Math.ceil((end - Date.now()) / 864e5);
+      const s = await api.season();
+      if (s.season && s.season !== SEASON){ SEASON = s.season; store.set('season', SEASON); applySeason(); loadBoard('home'); }
+      const end = new Date(s.season_end), days = Math.ceil((end - Date.now()) / 864e5);
       const date = end.toLocaleDateString('en-GB', {day:'numeric', month:'long'});
       $('season-left').textContent = days > 0 ? 'Closes in ' + days + ' day' + (days === 1 ? '' : 's') : 'Season closed';
-      $('e-season').textContent = days > 0
-        ? 'The leaderboard closes on ' + date + '. The winners of all three categories are announced at the AI event in January. Play as often as you like: only your best counts.'
-        : 'The season has closed. The winners are announced at the AI event in January.';
-    } catch(e){ $('e-season').textContent = 'The winners of all three categories are announced at the AI event in January.'; }
+      $('e-season').textContent = aiUnlocked()
+        ? 'Season 2 runs until ' + date + '. Play as often as you like: only your best counts.'
+        : 'The leaderboard closes on ' + date + '. The winners are announced at the AI event in January, where the AI button unlocks for season 2.';
+    } catch(e){ $('e-season').textContent = 'The winners are announced at the AI event in January, where the AI button unlocks.'; }
   }
 
   /* ================= start ================= */
-  function startGame(){
-    try { startGameInner(); }
-    catch(e){ console.error(e); const f = $('fatal'); f.hidden = false; f.textContent = 'The game could not start (' + e.message + '). Please reload the page with Ctrl+F5 / Cmd+Shift+R, or try another browser.'; }
-  }
-  function startGameInner(){
-    const name = $('name').value.trim().replace(/\s+/g, ' ').slice(0, 24);
-    if (!name){ show('s-home'); $('err').textContent = 'Enter your name so we can find you on the leaderboard.'; $('name').focus(); return; }
-    $('err').textContent = ''; store.set('name', name);
-    AU.start(); newGame(name); startAct(0);
-  }
   $('f-start').addEventListener('submit', e => { e.preventDefault(); startGame(); });
   $('again').addEventListener('click', startGame);
-  $('home').addEventListener('click', () => { G = null; show('s-home'); setScene(.5, .9, 1, .55); AU.mood(700, .75); loadBoard('home'); });
+  $('home').addEventListener('click', goHome);
   $('name').value = store.get('name', '');
 
   resize(); setScene(.5, .9, 1, .55); V.cur = {...V.tgt};
   V.beam = reduced ? 1 : .001;
-  last = performance.now(); raf = requestAnimationFrame(frame);
+  applySeason();
+  last = performance.now(); requestAnimationFrame(frame);
   loadBoard('home'); loadSeason(); flushPending();
-  window.CTB = {state:() => G, view:V};
+  window.CTB = {state:() => G, view:V, usePower};
 })();

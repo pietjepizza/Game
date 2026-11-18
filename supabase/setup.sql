@@ -9,7 +9,8 @@ create table if not exists public.settings (
 );
 insert into public.settings (key, value) values
   ('season_end', '2027-01-31T23:59:00+01:00'),   -- after this moment no new scores are accepted
-  ('season_name', 'Close the Books 2026')
+  ('season_name', 'Close the Books 2026'),
+  ('season', 's1')                                 -- 's1' = ESSA season; set to 's2' at the January event to unlock AI
 on conflict (key) do nothing;
 
 -- 2. One row per finished game
@@ -39,13 +40,19 @@ create or replace function public.submit_run(
 language plpgsql security definer set search_path = public as $$
 declare
   v_end timestamptz;
+  v_season text;
   v_last timestamptz;
   v_dur numeric := coalesce((p_stats->>'duration_ms')::numeric, 0);
   v_posted numeric := coalesce((p_stats->>'posted')::numeric, 0);
   v_name text := btrim(regexp_replace(coalesce(p_name, ''), '\s+', ' ', 'g'));
 begin
+  -- only the active season (or the 'test' sandbox) accepts scores
+  select value into v_season from settings where key = 'season';
+  if p_mode is distinct from 'test' and p_mode is distinct from coalesce(v_season, 's1') then
+    return json_build_object('ok', false, 'reason', 'wrong_season');
+  end if;
   select value::timestamptz into v_end from settings where key = 'season_end';
-  if v_end is not null and now() > v_end then
+  if p_mode <> 'test' and v_end is not null and now() > v_end then
     return json_build_object('ok', false, 'reason', 'season_closed');
   end if;
   if char_length(v_name) < 1 or char_length(v_name) > 24 then

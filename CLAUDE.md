@@ -5,7 +5,10 @@ Browser game for a Finance Operations team (~125 people), handed out before Chri
 ## Message the game must carry
 Volume keeps growing; you cannot scale it with people. ESSA (eliminate, simplify, standardize, automate) is the foundation to fix processes; AI is the extra enabler on top. Goal: people become AI-native and upskilled in using AI in daily work, so the team can handle more volume.
 
-## Status (18 Nov 2026)
+## Status (v3, 18 Nov 2026)
+Owner asked for simpler/shorter: v3 = one 90 s round, four ESSA power buttons (charge by posting by hand), locked AI button (one 3 s AI preview per game in season 1), locked "AI-ready" cards, AI tip on end screen, leaderboard score + entries (metric `posted`) with names. Seasons: `settings.season` = 's1' now; set to 's2' at the January event to unlock AI (submit_run only accepts the active season or 'test'). `?s2` previews season 2 in test mode.
+
+## Status (v2, superseded)
 v2 is built and live: intro with EUV beam + iridescent wafer, three acts (Manual, ESSA pick-2, AI-native), 2 upskilling questions (pick from 6) that set AI accuracy in act 3, music "Drama", live Supabase leaderboard with 3 categories (score, fastest avg_ms, review). Test with `?test` (mode 'test', kept off the real board). Next: owner review and tuning.
 
 ## Owner feedback on v1 (old version, replaced)
