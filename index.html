@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=3.4.0">
+<link rel="stylesheet" href="style.css?v=3.5.0">
 </head>
 <body>
 <canvas id="world" aria-hidden="true"></canvas>
@@ -107,6 +107,7 @@
       <div class="hud-bar"><i id="h-time"></i></div>
       <div class="hud-stats" id="h-stats"></div>
     </div>
+    <div class="gbanner" id="gbanner" role="status" aria-live="polite"></div>
     <div class="powerbar" id="powerbar">
       <button type="button" class="pw" data-p="elim" aria-label="Eliminate: removes almost half of the entries on screen"><i></i><b>E</b><span>Eliminate</span><small>clear 45%</small></button>
       <button type="button" class="pw" data-p="simp" aria-label="Simplify: complex deals and intercompany need 1 tap"><i></i><b>S</b><span>Simplify</span><small>1 tap</small></button>
@@ -185,6 +186,6 @@
     f.textContent = 'Something went wrong (' + (e.message || 'script error') + '). Please reload the page with Ctrl+F5 / Cmd+Shift+R, or try another browser.';
   });
 </script>
-<script src="game.js?v=3.4.0"></script>
+<script src="game.js?v=3.5.0"></script>
 </body>
 </html>

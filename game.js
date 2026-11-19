@@ -8,7 +8,7 @@
   const CFG = {
     url: 'https://evdtpvbacpibeasrczhu.supabase.co',
     key: 'sb_publishable_Y1GmwdTaooG8yqFTTTZApQ_WVwIwyZz',
-    version: '3.4.0',
+    version: '3.5.0',
     dur: 90
   };
   const $ = id => document.getElementById(id);
@@ -315,10 +315,15 @@
     CW = Math.min(184, Math.floor(colW * .47)); CH = 56;
   }
   // pts: points when posted by hand; charge: how much faster it charges the boosters; from: seconds before it first appears; w: how often
-  // the playing field starts just below the HUD, whatever height the HUD has on this screen
+  // the message strip sits right under the HUD; the playing field starts below that strip,
+  // so a message is always readable and never covers an entry you must post
+  const MSG_STRIP = 58;   // room for a two-line message (the CSS caps messages at two lines)
   function measureTop(){
     const hudEl = document.querySelector('#s-play .hud'), r = hudEl && hudEl.getBoundingClientRect();
-    if (r && r.height) L.top = Math.max(92, Math.round(r.bottom) + 6);
+    if (!r || !r.height) return;
+    const top = Math.round(r.bottom) + 6;
+    $('gbanner').style.top = top + 'px';
+    L.top = Math.max(92, top + MSG_STRIP);
   }
   const KIND = {
     R:  {label:'Journal entry',     col:'#5fd6f5', pts:10, charge:1,   from:0,  w:50, subs:['Accrual · €12,400','Reclass · €3,950','Prepayment · €8,200','Payroll · €41,000','Freight · €6,730','Rent · €18,500','Depreciation · €9,100']},
@@ -378,7 +383,7 @@
 
   /* ================= game ================= */
   const POWERS = {
-    elim: {name:'Eliminate',   charge:.075, dur:8, effect:'removes almost half of the entries on screen, and 40% less new work for 8 s',
+    elim: {name:'Eliminate',   charge:.075, dur:8, effect:'clears ~45% of the screen and slows new work by 40% for 8 s',
            hint:'ELIMINATE · work that adds no value is gone'},
     simp: {name:'Simplify',    charge:.11,  dur:8, effect:'complex deals and intercompany need just 1 tap for 8 s',
            hint:'SIMPLIFY · complex deals and intercompany: 1 tap'},
@@ -695,16 +700,6 @@
       for (const x of lanes()){ g.strokeRect(x, L.top, CW, L.line - L.top); }
       g.restore();
     }
-    // banners sit behind the entries: a message may never hide an entry you must post
-    if (G.banner){
-      const b = G.banner, a = clamp(b.t * 2, 0, 1), y = Math.round(L.top + (L.line - L.top) * .36);   // mid-field, away from where entries arrive
-      g.globalAlpha = a; g.font = '600 13px "IBM Plex Sans", sans-serif';
-      const w = Math.min(W - 24, g.measureText(b.txt).width + 32);
-      g.fillStyle = 'rgba(6,10,34,.88)'; rr(g, W / 2 - w / 2, y, w, 32, 16); g.fill();
-      g.strokeStyle = b.col; g.lineWidth = 1; rr(g, W / 2 - w / 2 + .5, y + .5, w - 1, 31, 16); g.stroke();
-      g.fillStyle = b.col; g.textBaseline = 'middle'; g.fillText(b.txt, W / 2, y + 16.5, w - 20); g.textBaseline = 'alphabetic';
-      g.globalAlpha = 1;
-    }
     for (const it of G.items){
       g.drawImage(sprite(it), it.x - PAD, it.y - PAD, CW + PAD * 2, CH + PAD * 2);
       if (it.tut && !G.hints.tut){
@@ -751,6 +746,12 @@
   let hudCache = {};
   function hud(force){
     if (force) hudCache = {};
+    // the message strip under the HUD (a page element, so it always sits on top and wraps on small screens)
+    const msg = G.banner && !G.failed ? G.banner : null, mkey = msg ? msg.txt + '|' + msg.col : '';
+    if (hudCache.msg !== mkey){
+      hudCache.msg = mkey; const m = $('gbanner');
+      if (msg){ m.textContent = msg.txt; m.style.setProperty('--bc', msg.col); m.classList.add('on'); } else m.classList.remove('on');
+    }
     const left = Math.max(0, Math.ceil(CFG.dur - Math.max(0, G.t)));
     const clock = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
     if (hudCache.clock !== clock){ hudCache.clock = clock; $('h-clock').textContent = clock; }

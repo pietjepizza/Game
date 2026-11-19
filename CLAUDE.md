@@ -5,6 +5,9 @@ Browser game for a Finance Operations team (~125 people), handed out before Chri
 ## Message the game must carry
 Volume keeps growing; you cannot scale it with people. ESSA (eliminate, simplify, standardize, automate) is the foundation to fix processes; AI is the extra enabler on top. Goal: people become AI-native and upskilled in using AI in daily work, so the team can handle more volume.
 
+## Status (v3.5)
+In-game messages moved from mid-field (owner: hard to read with entries falling through) to a fixed DOM strip `#gbanner` right under the HUD. The playfield starts below that strip (`MSG_STRIP` = 58 px, room for two lines; CSS caps messages at two lines). All 28 messages verified to fit in two lines at 320 px, so keep new messages short.
+
 ## Status (v3.4)
 Cinematic intro (INTRO in game.js): gate screen `#s-intro` (tap/Enter, unlocks audio) -> 0.6-3.4 s entry words stream to the centre with VOLUME ×1.0→×3.0 vs TEAM ×1.0 counters and "Manual work alone won't close this." -> 3.4 s implosion -> 3.9 s fast EUV beam impact (flash, shake, shockwave ring `V.ring`, music filter fully open) -> wafer grows (easeBack) and dies light up from the centre (`V.light`) -> 5.4 s home with `.fast` animation delays. Skip button / Esc; auto-skipped for reduced motion and `?skipintro` (all test scripts use it).
 
