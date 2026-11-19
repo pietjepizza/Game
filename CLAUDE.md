@@ -5,6 +5,9 @@ Browser game for a Finance Operations team (~125 people), handed out before Chri
 ## Message the game must carry
 Volume keeps growing; you cannot scale it with people. ESSA (eliminate, simplify, standardize, automate) is the foundation to fix processes; AI is the extra enabler on top. Goal: people become AI-native and upskilled in using AI in daily work, so the team can handle more volume.
 
+## Status (v3.6)
+Intro rebuilt as four acts (~6.7 s, timings in `T` in game.js) inside letterbox bars with a WD-1 23:58 -> WD3 17:00 close clock: 1) ledger wall (procedural journal rows, camera pull-back, rows turning red "UNMATCHED"), beats "Every month. / More volume. / Same team." + VOLUME vs TEAM; 2) match cut: ledger clipped by an ellipse that lands on the wafer; 3) EUV source: tin droplets, pre-pulse, main pulse, plasma flash labelled 13.5 nm, mirror, beam slam + shockwave; 4) title printed with a scanline + chromatic edges, tagline "Manual work alone won't close this. / ESSA first. Then AI.", letterbox out, fade into home (`INTRO.fade`).
+
 ## Status (v3.5)
 In-game messages moved from mid-field (owner: hard to read with entries falling through) to a fixed DOM strip `#gbanner` right under the HUD. The playfield starts below that strip (`MSG_STRIP` = 58 px, room for two lines; CSS caps messages at two lines). All 28 messages verified to fit in two lines at 320 px, so keep new messages short.
 

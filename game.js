@@ -8,7 +8,7 @@
   const CFG = {
     url: 'https://evdtpvbacpibeasrczhu.supabase.co',
     key: 'sb_publishable_Y1GmwdTaooG8yqFTTTZApQ_WVwIwyZz',
-    version: '3.5.0',
+    version: '3.6.0',
     dur: 90
   };
   const $ = id => document.getElementById(id);
@@ -124,6 +124,9 @@
         case 'lock':   this.tone(300, .1, 'triangle', .05, 0, 240); break;
         case 'unlock': this.tone(1047, .08, 'sine', .06); this.tone(1568, .12, 'sine', .05, t + .05); break;
         case 'reject': this.tone(660, .08, 'triangle', .05); this.tone(990, .1, 'triangle', .04, t + .05); break;
+        case 'pre':    this.tone(1800, .06, 'square', .03, 0, 900); break;
+        case 'zap':    this.tone(2600, .18, 'sawtooth', .05, 0, 200); this.noise(.35, .1, 6000, 800); break;
+        case 'shimmer':[1568, 2093, 2637, 3136].forEach((f, i) => this.tone(f, .5, 'sine', .03, t + i * .06)); this.noise(.8, .03, 8000, 3000); break;
         case 'hum':    this.tone(55, 3.6, 'sine', .16); this.tone(82.4, 3.6, 'sine', .07); break;
         case 'tick':   this.tone(2400, .025, 'sine', .025); break;
         case 'suck':   this.noise(.55, .12, 6000, 150); this.tone(440, .5, 'sine', .06, 0, 60); break;
@@ -847,6 +850,7 @@
     if (V.beam > 0 && V.beam < 1){ V.beam = Math.min(1, V.beam + dt * V.beamSpeed); if (V.beam >= 1){ V.flash = 1; AU.sfx('impact'); } }
     if (V.ring >= 0){ V.ring += dt / 1.3; if (V.ring > 1) V.ring = -1; }
     if (INTRO.on) updateIntro(dt);
+    else if (INTRO.fade > 0){ INTRO.fade = Math.max(0, INTRO.fade - dt * 2.5); INTRO.t += dt; }
     V.flash = Math.max(0, V.flash - dt * 1.4); V.shake = Math.max(0, V.shake - dt);
 
     if (G && G.playing && !G.paused) update(dt);
@@ -854,7 +858,7 @@
     const sh = V.shake > 0 && !reduced;
     g.save(); if (sh) g.translate(rand(-1, 1) * V.shake * 12, rand(-1, 1) * V.shake * 12);
     drawBackground(dt); drawWafer(); drawRing(); drawBeam(); drawParticles(dt);
-    if (INTRO.on) drawIntro();
+    if (INTRO.on || INTRO.fade > 0) drawIntro();
     if (G && G.playing) drawGame();
     g.restore();
     if (V.flash > 0){ g.fillStyle = 'rgba(200,235,255,' + V.flash * .5 + ')'; g.fillRect(0, 0, W, H); }
@@ -863,102 +867,207 @@
   }
 
   /* ================= cinematic intro ================= */
-  // gate (tap to begin, unlocks sound) -> data stream with VOLUME vs TEAM counters -> implosion -> EUV beam impact -> wafer wakes up -> home
-  const INTRO = {on:false, t:0, words:[], acc:0, absorbed:0, lastTick:0, impact:false, done:false};
-  const WORDS = ['€12,400','JE-4471','ACCRUAL','€1.3M','IC NL01→US02','RECLASS','€86k','PAYROLL','€41,000','DEFERRAL','FX REVAL','€2.7M','VAT','SIGN-OFF',
-    'LEASE','DUPLICATE?','BANK MATCH','€540k','PREPAYMENT','€9,100','PROVISION','JE-0932','€220k','ELIMINATION','FREIGHT','€6,730','CUT-OFF','AUDIT REQ'];
-  const T_STREAM = .6, T_IMPLODE = 3.4, T_IMPACT = 3.9, T_END = 5.4;
+  // Four acts, ~7 s, after a tap-to-begin gate that unlocks sound:
+  //  1 the close: letterbox, WD-1 -> WD3 clock, an endless ledger wall scrolling faster as the camera pulls back;
+  //    beats "Every month. / More volume. / Same team." with VOLUME vs TEAM
+  //  2 match cut: the ledger grid collapses into the wafer's die grid
+  //  3 EUV as it really works: tin droplets, pre-pulse, main pulse, plasma flash (13.5 nm), mirror, beam slams into the wafer
+  //  4 exposure: dies light up, the title is printed with a scanline, tagline, letterbox out, home
+  const INTRO = {on:false, t:0, done:false, impact:false, fade:0, cues:{}};
+  const T = {ledger:.25, morph:2.9, euv:3.3, pre:3.45, main:3.62, mirror:3.62, slam:3.8, title:4.45, tag:5.2, out:6.2, end:6.7};
   const easeOut = x => 1 - Math.pow(1 - x, 3);
+  const easeInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
   const easeBack = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+  const hash = n => { n = (n ^ 61) ^ (n >>> 16); n = n + (n << 3); n = n ^ (n >>> 4); n = Math.imul(n, 0x27d4eb2d); return ((n ^ (n >>> 15)) >>> 0) / 4294967296; };
+  const ACCOUNTS = ['6110 Freight','4000 Revenue','2100 Accruals','1200 Receivables','5300 Payroll','1500 Fixed assets','2400 IC payable','7100 FX result','1300 Inventory','2200 VAT','4100 Deferred rev','6400 Rent'];
+  function ledgerRow(i){
+    const h = hash(i * 7 + 3), amt = (h * 900000 + 120).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return 'JE-' + String(1000 + Math.floor(hash(i) * 8999)) + '  ' + ACCOUNTS[Math.floor(hash(i * 13) * ACCOUNTS.length)].padEnd(18) + ' €' + amt.padStart(11) + (h > .5 ? ' D' : ' C');
+  }
+  function cue(name, fn){ if (!INTRO.cues[name]){ INTRO.cues[name] = 1; fn(); } }
+  const plasmaPt = () => ({x:Math.max(40, W * .16), y:H * .2});
+  const mirrorPt = () => ({x:W / 2, y:H * .1});
+
   function startIntro(){
     if (INTRO.on || INTRO.done) return;
-    Object.assign(INTRO, {on:true, t:0, words:[], acc:0, absorbed:0, lastTick:0, impact:false});
+    Object.assign(INTRO, {on:true, t:0, impact:false, fade:0, cues:{}});
     $('gate').classList.add('away'); $('skip').hidden = false;
     AU.start(); AU.mood(260, .8, .05); AU.sfx('hum');
-    V.beam = 0; V.light = 0; V.cur = {y:.5, r:.55, a:.18, i:.2};
+    V.beam = 0; V.light = 0; V.cur = {y:.5, r:.55, a:0, i:.2};
   }
   function updateIntro(dt){
     const I = INTRO; I.t += dt; const t = I.t, C = waferC();
-    if (t >= T_STREAM && t - dt < T_STREAM){ AU.mood(1700, .82, 1.1); AU.sfx('riser'); }
-    // the stream of entries: more and faster as volume grows
-    if (t >= T_STREAM && t < T_IMPLODE){
-      const k = (t - T_STREAM) / (T_IMPLODE - T_STREAM);
-      I.acc += (8 + 70 * k * k) * dt;
-      while (I.acc >= 1){
-        I.acc--; const a = Math.random() * TAU, d = Math.max(W, H) * .62;
-        I.words.push({x:C.x + Math.cos(a) * d, y:C.y + Math.sin(a) * d * .8, a, txt:pick(WORDS), v:rand(90, 160), cyan:Math.random() < .6, life:0});
-      }
-      const vol = 1 + 2 * k * k;
-      if (Math.floor(vol * 10) !== I.lastTick){ I.lastTick = Math.floor(vol * 10); AU.sfx('tick'); }
-    }
-    if (t >= T_IMPLODE && t - dt < T_IMPLODE) AU.sfx('suck');
-    const pull = t >= T_IMPLODE ? 6 : 1 + (t - T_STREAM) * .5;
-    for (let i = I.words.length - 1; i >= 0; i--){
-      const w = I.words[i], dx = C.x - w.x, dy = C.y - w.y, dist = Math.hypot(dx, dy) || 1;
-      const sp = w.v * pull, sw = .55;   // inward, with a slight swirl
-      w.x += (dx / dist * sp + -dy / dist * sp * sw * .4) * dt; w.y += (dy / dist * sp + dx / dist * sp * sw * .4) * dt; w.life += dt;
-      if (dist < 26){ I.words.splice(i, 1); I.absorbed++; }
-    }
-    // impact: the EUV beam slams into the wafer
-    if (t >= T_IMPACT && !I.impact){
-      I.impact = true; I.words.length = 0;
-      V.beam = .001; V.beamSpeed = 1 / .16; V.shake = .7; V.ring = 0;
-      AU.mood(20000, .95, .04); setTimeout(() => { if (!G) AU.mood(1100, .78, .9); }, 1500);
+    if (t >= T.ledger) cue('rise', () => { AU.mood(1700, .82, 1.1); AU.sfx('riser'); });
+    // clock ticks while the close runs
+    if (t >= T.ledger && t < T.morph){ const m = Math.floor(closeMinutes(t) / 60); if (m !== I.lastHour){ I.lastHour = m; AU.sfx('tick'); } }
+    if (t >= T.morph) cue('morph', () => { AU.sfx('suck'); AU.mood(800, .8, .2); });
+    // the wafer appears dark as the die grid lands on it
+    if (t >= T.morph && !I.impact){ const k = clamp((t - T.morph - .25) / .3, 0, 1); V.cur = {y:.5, r:.62, a:k * .9, i:.2}; }
+    if (t >= T.pre) cue('pre', () => AU.sfx('pre'));
+    if (t >= T.main) cue('main', () => { AU.sfx('zap'); V.flash = Math.max(V.flash, .18); burst(plasmaPt().x, plasmaPt().y, 26, '#d8c8ff', false); });
+    if (t >= T.slam && !I.impact){
+      I.impact = true;
+      V.beam = .001; V.beamSpeed = 1 / .14; V.shake = .7; V.ring = 0;
+      AU.mood(20000, .95, .04); setTimeout(() => { if (!G) AU.mood(1100, .78, .9); }, 1600);
       burst(C.x, C.y, 60, '#bfe9ff', false);
     }
     if (I.impact){
-      const k = clamp((t - T_IMPACT) / 1.2, 0, 1);
-      V.cur = {y:.5, r:.25 + .65 * easeBack(k), a:.18 + .82 * easeOut(k), i:.55 + .6 * (1 - k)};
-      V.light = clamp((t - T_IMPACT - .25) / 1.1, 0, 1);
+      const k = clamp((t - T.slam) / 1.2, 0, 1);
+      V.cur = {y:.5, r:.62 + .28 * easeBack(k), a:.9 + .1 * k, i:.55 + .6 * (1 - k)};
+      V.light = clamp((t - T.slam - .2) / 1.1, 0, 1);
     }
-    if (t >= T_END) finishIntro(false);
+    if (t >= T.title) cue('title', () => AU.sfx('shimmer'));
+    if (t >= T.end) finishIntro(false);
   }
+  // simulated close time: WD-1 23:58 -> WD3 17:00, accelerating
+  function closeMinutes(t){ const k = clamp((t - T.ledger) / (T.morph - T.ledger), 0, 1); return 1438 + (5340 - 1438) * Math.pow(k, 2.2); }
+  function closeClock(t){
+    const abs = Math.floor(closeMinutes(t)), d = Math.floor(abs / 1440), mm = abs % 1440;
+    return (d === 0 ? 'WD-1' : 'WD' + d) + '  ' + String(Math.floor(mm / 60)).padStart(2, '0') + ':' + String(mm % 60).padStart(2, '0');
+  }
+
   function drawIntro(){
-    const I = INTRO, t = I.t, C = waferC();
-    // words flowing in
-    g.save(); g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalCompositeOperation = 'lighter';
-    for (const w of I.words){
-      const dist = Math.hypot(C.x - w.x, C.y - w.y), near = clamp(dist / (Math.max(W, H) * .6), 0, 1);
-      g.globalAlpha = clamp(w.life * 3, 0, 1) * (.35 + .55 * near);
-      g.fillStyle = w.cyan ? '#5fd6f5' : '#a78bfa'; g.font = '600 ' + Math.round(9 + 7 * near) + 'px "IBM Plex Mono", monospace';
-      g.fillText(w.txt, w.x, w.y);
+    const I = INTRO, t = I.t, C = waferC(), R = waferR();
+    // ---- act 1: the ledger wall
+    if (t > T.ledger - .1 && t < T.morph + .45){
+      const k = clamp((t - T.ledger) / (T.morph - T.ledger), 0, 1);
+      const zoom = lerp(1.45, .5, easeInOut(k));                              // the camera pulls back
+      const collapse = clamp((t - T.morph) / .4, 0, 1);                       // act 2: match cut into the die grid
+      const lineH = 18 * zoom, colW = 330 * zoom, scroll = (t - T.ledger) * (60 + 900 * k * k) * zoom;
+      const flagShare = .02 + .22 * k * k;
+      // the visible area shrinks toward the wafer's die grid during the match cut
+      const bx = lerp(0, C.x - R, easeInOut(collapse)), bw = lerp(W, R * 2, easeInOut(collapse));
+      const by = lerp(0, C.y - R * .36, easeInOut(collapse)), bh = lerp(H, R * .72, easeInOut(collapse));
+      // the clip is an ellipse that starts larger than the screen and lands exactly on the wafer
+      const ec = easeInOut(collapse), ex0 = lerp(W / 2, C.x, ec), ey0 = lerp(H / 2, C.y, ec), erx = lerp(Math.max(W, H), R, ec), ery = lerp(Math.max(W, H), R * .36, ec);
+      g.save(); g.beginPath(); g.ellipse(ex0, ey0, erx, ery, 0, 0, TAU); g.clip();
+      g.globalAlpha = clamp((t - T.ledger + .1) * 4, 0, 1) * (1 - collapse * .9);
+      const fs = 12 * zoom, rows = Math.ceil(H / lineH) + 2, cols = Math.ceil(W / colW) + 1, first = Math.floor(scroll / lineH);
+      g.textBaseline = 'middle'; g.textAlign = 'left'; g.font = '500 ' + Math.max(6, fs).toFixed(1) + 'px "IBM Plex Mono", monospace';
+      for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++){
+        const i = first + r + c * 977, y = r * lineH - (scroll % lineH), x = c * colW + 10 * zoom;
+        const flagged = hash(i * 31 + 7) < flagShare, edge = clamp(Math.min(y, H - y) / (H * .25), 0, 1);
+        g.fillStyle = flagged ? 'rgba(255,93,115,' + (.85 * edge) + ')' : (c + r) % 3 ? 'rgba(120,170,255,' + (.45 * edge) + ')' : 'rgba(95,214,245,' + (.6 * edge) + ')';
+        if (fs >= 7) g.fillText(ledgerRow(i) + (flagged ? '  ⚠ UNMATCHED' : ''), x, y);
+        else g.fillRect(x, y - 1, colW * (.55 + .35 * hash(i)), Math.max(1, fs * .4));   // too small to read: data bars
+      }
+      g.restore();
+      // grid lines that become the die grid
+      if (collapse > 0){
+        g.save(); g.beginPath(); g.ellipse(ex0, ey0, erx, ery, 0, 0, TAU); g.clip(); g.globalAlpha = (1 - collapse) * .8; g.strokeStyle = 'rgba(150,200,255,.6)'; g.lineWidth = 1;
+        const step = lerp(lineH * 2, R * .08, collapse); g.beginPath();
+        for (let x = bx; x <= bx + bw; x += step){ g.moveTo(x, by); g.lineTo(x, by + bh); }
+        for (let y = by; y <= by + bh; y += step * .36 / .36){ g.moveTo(bx, y); g.lineTo(bx + bw, y); }
+        g.stroke(); g.restore();
+      }
+      // beats with VOLUME vs TEAM, on a dark wash so they read over the wall
+      const wash = g.createRadialGradient(W / 2, H * .46, 0, W / 2, H * .46, Math.max(W, H) * .5);
+      wash.addColorStop(0, 'rgba(3,5,16,' + (.82 * (1 - collapse)) + ')'); wash.addColorStop(1, 'rgba(3,5,16,0)');
+      g.fillStyle = wash; g.fillRect(0, 0, W, H);
+      const beats = [['Every month.', .45, 1.2], ['More volume.', 1.25, 1.95], ['Same team.', 2.0, 2.85]];
+      const size = Math.round(Math.min(56, W * .12));
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      for (const [txt, a, b] of beats){
+        if (t < a || t > b + .25) continue;
+        const inK = clamp((t - a) / .18, 0, 1), outK = clamp((t - b) / .25, 0, 1), al = inK * (1 - outK);
+        g.save(); g.globalAlpha = al; g.translate(W / 2, H * .44); g.scale(1.06 - .06 * easeOut(inK), 1.06 - .06 * easeOut(inK));
+        g.font = '800 ' + size + 'px "Sora", sans-serif'; g.shadowColor = txt === 'Same team.' ? 'rgba(255,93,115,.6)' : 'rgba(95,214,245,.6)'; g.shadowBlur = 26;
+        g.fillStyle = '#ffffff'; g.fillText(txt, 0, 0, W - 32); g.restore();
+      }
+      if (t > .45 && t < T.morph + .1){
+        const vk = clamp((t - T.ledger) / (T.morph - T.ledger), 0, 1);
+        g.save(); g.globalAlpha = clamp((t - .45) * 3, 0, 1) * (1 - collapse);
+        g.font = '600 ' + Math.round(Math.min(16, W * .04)) + 'px "IBM Plex Mono", monospace';
+        const y = H * .44 + size * .95;
+        g.fillStyle = '#ffffff'; g.shadowColor = 'rgba(95,214,245,.8)'; g.shadowBlur = 12;
+        g.fillText('VOLUME ×' + (1 + 2 * vk * vk).toFixed(1), W / 2 - Math.min(110, W * .22), y);
+        g.shadowBlur = 0; g.fillStyle = '#8a93c4'; g.fillText('TEAM ×1.0', W / 2 + Math.min(110, W * .22), y);
+        g.restore();
+      }
     }
-    g.restore();
-    // core glow grows with every absorbed entry
-    if (t < T_IMPACT && t > T_STREAM){
-      const gr = Math.min(80, 10 + I.absorbed * .5), cg = g.createRadialGradient(C.x, C.y, 0, C.x, C.y, gr * 2);
-      cg.addColorStop(0, 'rgba(220,240,255,.85)'); cg.addColorStop(.3, 'rgba(120,160,255,.35)'); cg.addColorStop(1, 'rgba(80,40,200,0)');
-      g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = cg; g.beginPath(); g.arc(C.x, C.y, gr * 2, 0, TAU); g.fill(); g.restore();
-    }
-    // VOLUME vs TEAM counters and the line underneath
-    if (t > T_STREAM && t < T_IMPACT){
-      const k = clamp((t - T_STREAM) / (T_IMPLODE - T_STREAM), 0, 1), fade = t > T_IMPLODE ? 1 - (t - T_IMPLODE) / (T_IMPACT - T_IMPLODE) : clamp((t - T_STREAM) * 3, 0, 1);
-      const y = H * .2, gap = Math.min(150, W * .26), big = Math.round(Math.min(46, W * .11));
-      g.save(); g.globalAlpha = clamp(fade, 0, 1); g.textAlign = 'center';
-      const bw = Math.min(W - 24, gap * 2 + 190), bh = big + 52;   // dark panel so the stream never runs through the numbers
-      g.fillStyle = 'rgba(4,7,22,.78)'; rr(g, W / 2 - bw / 2, y - 26, bw, bh, 18); g.fill();
-      g.strokeStyle = 'rgba(160,180,255,.22)'; g.lineWidth = 1; rr(g, W / 2 - bw / 2 + .5, y - 25.5, bw - 1, bh - 1, 18); g.stroke();
-      g.font = '600 11px "IBM Plex Mono", monospace'; g.fillStyle = '#a3acd9';
-      g.fillText('V O L U M E', W / 2 - gap, y); g.fillText('T E A M', W / 2 + gap, y);
-      g.font = '600 ' + big + 'px "IBM Plex Mono", monospace';
-      g.shadowColor = 'rgba(95,214,245,.8)'; g.shadowBlur = 20; g.fillStyle = '#ffffff';
-      g.fillText('×' + (1 + 2 * k * k).toFixed(1), W / 2 - gap, y + big + 6);
-      g.shadowBlur = 0; g.fillStyle = '#7f88b8'; g.fillText('×1.0', W / 2 + gap, y + big + 6);
-      const line = 'Manual work alone won\u2019t close this.', n = Math.floor(clamp((t - 2.2) / 1, 0, 1) * line.length);
-      if (n > 0){ g.font = '500 ' + Math.round(Math.min(18, W * .045)) + 'px "IBM Plex Sans", sans-serif';
-        const lw = Math.min(W - 24, g.measureText(line).width + 40); g.fillStyle = 'rgba(4,7,22,.78)'; rr(g, W / 2 - lw / 2, H * .8 - 22, lw, 40, 20); g.fill();
-        g.fillStyle = '#ffc2cb';
-        g.fillText(line.slice(0, n) + (n < line.length && Math.floor(t * 8) % 2 ? '▍' : ''), W / 2, H * .8, W - 32); }
+    // ---- act 3: EUV light source
+    if (t > T.euv && t < T.slam + .5){
+      const P = plasmaPt(), M = mirrorPt(), k = clamp((t - T.euv) / (T.slam - T.euv), 0, 1), fadeOut = 1 - clamp((t - T.slam) / .5, 0, 1);
+      g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = fadeOut;
+      // tin droplets falling past the focus
+      g.fillStyle = 'rgba(220,225,255,.9)';
+      for (let j = 0; j < 7; j++){ const y = ((t * 520 + j * 60) % (H * .4)); if (Math.abs(y - P.y) > 4 || t < T.pre) g.beginPath(), g.arc(P.x, y, 2.4, 0, TAU), g.fill(); }
+      // pre-pulse flattens the droplet; main pulse turns it into plasma
+      if (t > T.pre && t < T.pre + .1){ g.strokeStyle = 'rgba(255,90,90,.75)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, P.y); g.lineTo(P.x, P.y); g.stroke();
+        g.fillStyle = '#ffd0d0'; g.beginPath(); g.ellipse(P.x, P.y, 7, 2.4, 0, 0, TAU); g.fill(); }
+      if (t > T.main && t < T.main + .14){ g.strokeStyle = 'rgba(255,120,60,.95)'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, P.y); g.lineTo(P.x, P.y); g.stroke(); }
+      if (t > T.main){
+        const pk = clamp((t - T.main) / .5, 0, 1), pr = 14 + 60 * (1 - Math.pow(1 - pk, 3));
+        const pg = g.createRadialGradient(P.x, P.y, 0, P.x, P.y, pr);
+        pg.addColorStop(0, 'rgba(255,255,255,' + (1 - pk * .6) + ')'); pg.addColorStop(.25, 'rgba(200,170,255,' + (.8 - pk * .5) + ')'); pg.addColorStop(1, 'rgba(120,60,255,0)');
+        g.fillStyle = pg; g.beginPath(); g.arc(P.x, P.y, pr, 0, TAU); g.fill();
+        g.strokeStyle = 'rgba(230,220,255,' + (.8 - pk * .6) + ')'; g.lineWidth = 1.5;
+        for (let a = 0; a < 4; a++){ const ang = a * Math.PI / 4; g.beginPath(); g.moveTo(P.x - Math.cos(ang) * pr * 1.3, P.y - Math.sin(ang) * pr * 1.3); g.lineTo(P.x + Math.cos(ang) * pr * 1.3, P.y + Math.sin(ang) * pr * 1.3); g.stroke(); }
+        // the light travels to the mirror, then down to the wafer (the beam itself is drawn by drawBeam)
+        const lk = clamp((t - T.mirror) / (T.slam - T.mirror), 0, 1), ex = lerp(P.x, M.x, lk), ey = lerp(P.y, M.y, lk);
+        g.strokeStyle = 'rgba(190,160,255,.9)'; g.lineWidth = 5; g.beginPath(); g.moveTo(P.x, P.y); g.lineTo(ex, ey); g.stroke();
+        g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(P.x, P.y); g.lineTo(ex, ey); g.stroke();
+      }
+      // the mirror
+      g.save(); g.translate(M.x, M.y); g.rotate(-.35); g.fillStyle = 'rgba(170,220,255,' + (.35 + .5 * k) + ')'; g.fillRect(-26, -2, 52, 4); g.restore();
+      g.globalCompositeOperation = 'source-over'; g.font = '600 11px "IBM Plex Mono", monospace'; g.textAlign = 'left'; g.textBaseline = 'middle';
+      if (t > T.main){ g.fillStyle = 'rgba(216,200,255,' + clamp((t - T.main) * 4, 0, 1) + ')'; g.fillText('13.5 nm', P.x + 16, P.y + 22); }
       g.restore();
     }
-    // implosion darkening
-    if (t > T_IMPLODE && t < T_IMPACT + .05){
-      g.fillStyle = 'rgba(2,3,10,' + clamp((t - T_IMPLODE) / (T_IMPACT - T_IMPLODE), 0, 1) * .7 + ')'; g.fillRect(0, 0, W, H);
+    // ---- act 4: the title is printed with a scanline, then the tagline
+    const titleA = (t > T.title ? 1 : 0) * (1 - clamp((t - T.out) / .5, 0, 1)) * (I.on ? 1 : I.fade);
+    if (titleA > 0){
+      const pk = clamp((t - T.title) / .75, 0, 1), big = Math.round(Math.min(110, W * .22)), small = Math.round(big * .45);
+      g.font = '800 ' + big + 'px "Sora", sans-serif';
+      const tw = Math.min(W - 16, g.measureText('Books').width + 40), cy = H * .2, x0 = W / 2 - tw / 2, wv = tw;   // the scan covers the title only
+      g.save(); g.globalAlpha = titleA; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.beginPath(); g.rect(x0, 0, wv * easeOut(pk), H); g.clip();
+      for (const [off, col] of [[-3, 'rgba(95,214,245,.55)'], [3, 'rgba(255,80,120,.45)']]){
+        g.globalCompositeOperation = 'lighter'; g.fillStyle = col;
+        g.font = '300 ' + small + 'px "Sora", sans-serif'; g.fillText('Close the', W / 2 + off * (1 - pk), cy - big * .55);
+        g.font = '800 ' + big + 'px "Sora", sans-serif'; g.fillText('Books', W / 2 + off * (1 - pk), cy + small * .2);
+      }
+      g.globalCompositeOperation = 'source-over';
+      const tg = g.createLinearGradient(W / 2 - big * 1.6, 0, W / 2 + big * 1.6, 0);
+      tg.addColorStop(0, '#ffffff'); tg.addColorStop(.55, '#5fd6f5'); tg.addColorStop(1, '#a78bfa');
+      g.fillStyle = tg; g.shadowColor = 'rgba(95,214,245,.6)'; g.shadowBlur = 24;
+      g.font = '300 ' + small + 'px "Sora", sans-serif'; g.fillText('Close the', W / 2, cy - big * .55);
+      g.font = '800 ' + big + 'px "Sora", sans-serif'; g.fillText('Books', W / 2, cy + small * .2);
+      g.restore();
+      if (pk < 1){ // the exposure scanline
+        const sx = x0 + wv * easeOut(pk);
+        g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = titleA;
+        const sg = g.createLinearGradient(sx - 30, 0, sx + 6, 0); sg.addColorStop(0, 'rgba(95,214,245,0)'); sg.addColorStop(1, 'rgba(220,245,255,.9)');
+        g.fillStyle = sg; g.fillRect(sx - 30, cy - big, 36, big * 1.8); g.restore();
+      }
+      const lines = [['Manual work alone won’t close this.', T.tag, '#ffc2cb'], ['ESSA first. Then AI.', T.tag + .55, '#9fe9ff']];
+      g.save(); g.globalAlpha = titleA; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = '500 ' + Math.round(Math.min(19, W * .046)) + 'px "IBM Plex Sans", sans-serif';
+      lines.forEach(([txt, at, col], j) => {
+        const n = Math.floor(clamp((t - at) / .45, 0, 1) * txt.length); if (!n) return;
+        g.fillStyle = col; g.fillText(txt.slice(0, n), W / 2, H * .78 + j * 28, W - 32);
+      });
+      g.restore();
     }
-    if (t < T_STREAM){ g.fillStyle = 'rgba(2,3,10,' + (1 - t / T_STREAM) * .6 + ')'; g.fillRect(0, 0, W, H); }
+    // ---- vignette and letterbox, over everything
+    const vg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .35, W / 2, H / 2, Math.max(W, H) * .75);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,6,' + (.55 * (I.on ? 1 : I.fade)) + ')');
+    g.fillStyle = vg; g.fillRect(0, 0, W, H);
+    const lbIn = easeOut(clamp(t / .5, 0, 1)), lbOut = 1 - easeInOut(clamp((t - T.out) / .5, 0, 1)), bar = Math.round(H * .09 * lbIn * lbOut * (I.on ? 1 : I.fade));
+    if (bar > 0){
+      g.fillStyle = '#000'; g.fillRect(0, 0, W, bar); g.fillRect(0, H - bar, W, bar);
+      g.fillStyle = 'rgba(95,214,245,.25)'; g.fillRect(0, bar, W, 1); g.fillRect(0, H - bar - 1, W, 1);
+      if (bar > 22){
+        g.font = '600 10px "IBM Plex Mono", monospace'; g.textBaseline = 'middle';
+        g.fillStyle = 'rgba(163,172,217,.9)'; g.textAlign = 'left'; g.fillText('PERIOD-END CLOSE', 16, bar / 2 + 2);
+        g.textAlign = 'right'; g.fillStyle = t < T.morph ? '#ffffff' : 'rgba(216,200,255,.9)';
+        g.fillText(t < T.morph ? closeClock(t) : t < T.title ? 'EUV · 13.5 nm' : 'SEASON 1', W - 64, bar / 2 + 2);
+      }
+    }
+    if (t < .35){ g.fillStyle = 'rgba(2,3,10,' + (1 - t / .35) * .7 + ')'; g.fillRect(0, 0, W, H); }
   }
   function finishIntro(skipped){
-    INTRO.on = false; INTRO.done = true; INTRO.words.length = 0;
+    INTRO.on = false; INTRO.done = true; INTRO.fade = skipped ? 0 : 1;
     $('skip').hidden = true;
     V.beam = 1; V.beamSpeed = 1 / 1.1; V.light = 1;
     if (skipped){ V.flash = .5; AU.start(); AU.mood(1100, .78, .3); V.ring = 0; }

@@ -6,7 +6,14 @@ A browser game for the Finance Operations team. Volume grows, the team doesn't. 
 
 ## Intro
 
-The game opens on a dark gate ("Tap to begin", which also unlocks sound). The ~5-second cinematic that follows tells the story: entries stream in from every side while VOLUME climbs from ×1.0 to ×3.0 and TEAM stays at ×1.0 ("Manual work alone won't close this"), everything implodes, the EUV beam slams into the wafer with a flash and shockwave, and the wafer's dies light up from the centre before the home screen appears. Skip with the button or Esc; it is skipped automatically for players who prefer reduced motion, and with `?skipintro` in the URL.
+The game opens on a dark gate ("Tap to begin", which also unlocks sound), followed by a ~7-second cinematic in four acts, framed by letterbox bars with a close clock running from WD-1 23:58 to WD3 17:00:
+
+1. **The close**: an endless ledger wall of journal entries scrolls faster while the camera pulls back and more lines turn red (unmatched). Three beats: "Every month." "More volume." "Same team.", with VOLUME ×1.0→×3.0 against TEAM ×1.0.
+2. **Match cut**: the ledger collapses into the wafer's die grid.
+3. **EUV light, as it really works**: falling tin droplets, a pre-pulse that flattens a droplet, the main pulse that turns it into plasma (13.5 nm), a mirror, and the beam slamming into the wafer with a flash and shockwave.
+4. **Exposure**: the dies light up, the title is printed with a scanline, and "Manual work alone won't close this. ESSA first. Then AI." types out before the home screen appears.
+
+Skip with the button or Esc; it is skipped automatically for players who prefer reduced motion, and with `?skipintro` in the URL.
 
 ## How it works in the game
 
