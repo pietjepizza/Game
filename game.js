@@ -8,7 +8,7 @@
   const CFG = {
     url: 'https://evdtpvbacpibeasrczhu.supabase.co',
     key: 'sb_publishable_Y1GmwdTaooG8yqFTTTZApQ_WVwIwyZz',
-    version: '3.8.0',
+    version: '3.9.0',
     dur: 90
   };
   const $ = id => document.getElementById(id);
@@ -1094,17 +1094,22 @@
   /* ================= end & leaderboard ================= */
   function finish(){
     G.playing = false; $('pause').hidden = true; V.streaks.length = 0;
-    const s = G.st, posted = s.manual + s.bot + s.ai, flawless = !G.failed;
-    const bonus = flawless ? Math.round(G.score * .5) : 0; G.score += bonus;
+    AU.sfx('end'); AU.mood(3200, .7); setScene(.7, 1, 1, .8);
+    G.flawlessBonus = !G.failed ? Math.round(G.score * .5) : 0; G.score += G.flawlessBonus;
+    showDebrief();
+  }
+  function showEnd(){
+    const s = G.st, posted = s.manual + s.bot + s.ai, flawless = !G.failed, bonus = G.flawlessBonus;
+    const qb = G.check && G.check.right ? CONTENT.quizPoints : 0; G.score += qb;
     const playedMs = flawless ? CFG.dur * 1000 : Math.round(G.playedMs);
     const run = {p_player:PLAYER, p_name:G.name, p_mode:modeFor(), p_score:Math.round(G.score), p_version:CFG.version,
       p_stats:{duration_ms:playedMs, posted, manual:s.manual, bot:s.bot, ai:s.ai, eliminated:s.elim, missed:s.missed, dup_rejected:s.dupRej, dup_posted:s.dupPosted || 0, flawless:flawless ? 1 : 0, bonus, powers:s.powers, preview:G.aiPreviewUsed ? 1 : 0,
         best_streak:s.bestStreak, clutch:s.clutch, spikes:s.spikes}};
     const iq = store.get('aiiq', 0); if (iq > 0) run.p_stats.ai_iq = iq;
-    G.run = run; G.quiz = null;
+    if (G.check && G.check.answered) run.p_stats.quiz_right = G.check.right ? 1 : 0;
+    G.run = run;
     const newPB = run.p_score > G.pb; if (newPB) store.set(pbKey(), run.p_score);
     const rank = rankFor(run.p_score);
-    AU.sfx('end'); AU.mood(3200, .7); setScene(.7, 1, 1, .8);
 
     $('e-eyebrow').textContent = G.name + ' · ' + (aiUnlocked() ? 'Season 2 · AI unlocked' : 'Season 1 · ESSA') + (newPB && G.pb ? ' · new personal best!' : '');
     $('e-rank').textContent = rank.name + (flawless ? ' ★' : '');
@@ -1112,16 +1117,16 @@
     $('e-extra').textContent = 'Best streak ' + s.bestStreak + ' · ' + s.clutch + ' clutch save' + (s.clutch === 1 ? '' : 's') + ' · ' + s.spikes + ' of ' + SPIKES.length + ' spikes cleared'
       + (G.pb && !newPB ? ' · your best: ' + fmt(G.pb) : '');
     G.share = shareText(run.p_score, posted, rank, flawless);
+    if (G.check && G.check.answered){ const L = G.share.split('\n'); L.splice(L.length - 1, 0, '🧠 AI check ' + (G.check.right ? '✅' : '❌') + ' · AI deck ' + deck().length + '/' + CONTENT.cards.length); G.share = L.join('\n'); }
     $('e-share-status').textContent = '';
     $('e-title').textContent = flawless ? 'Flawless close. First time right.' : 'Close failed after ' + clockAt(G.failed.at) + '.';
     const bd = $('e-breakdown'); bd.textContent = '';
-    [[s.manual, 'by hand'], [s.bot + s.elim, 'by automation & eliminate'], [s.ai, 'by AI']].forEach(([v, l]) => {
+    [[s.manual, 'by hand'], [s.bot + s.elim, 'by ESSA'], [s.ai, 'by AI']].forEach(([v, l]) => {
       const d = el('div'); d.append(el('b', '', fmt(v)), el('span', '', l)); bd.appendChild(d); });
     const rk = $('e-ranks'); rk.textContent = '';
     [['score', '🏆 Score', fmt(run.p_score)], ['entries', '📒 Entries', fmt(posted) + ' posted'], ['aiiq', '🧠 AI IQ', fmt(iq) + ' right']].forEach(([c, t, v]) => {
       const d = el('div'); d.dataset.cat = c; d.append(el('small', '', t), el('b', '', '–'), el('span', '', v)); rk.appendChild(d); });
-    showLesson(); showNewCard();
-    $('quiz-go').disabled = false; $('quiz-go-t').textContent = 'Bonus: AI quiz · +' + CONTENT.quizPoints + ' per right answer';
+    renderDeckCount();
     const missedTxt = G.failed ? labelFor(G.failed.it) + ' \u00b7 ' + G.failed.it.sub : '';
     const head = flawless
       ? 'You closed <b>' + fmt(posted) + '</b> entries in 90 seconds without missing a single one: <b>+' + fmt(bonus) + '</b> flawless bonus. '
@@ -1138,30 +1143,82 @@
     show('s-end'); countUp($('e-score'), run.p_score);
     submitRun(run);
   }
-  /* ---------- AI learning: lesson, AI deck, bonus quiz (texts in content.js) ---------- */
+  /* ---------- AI learning: debrief, AI deck, check question (texts in content.js) ---------- */
   const CONTENT = window.CTB_CONTENT;
   const cardById = id => CONTENT.cards.find(c => c.id === id);
   const deck = () => store.get('deck', []).filter(id => cardById(id));
-  function renderDeckCount(){ $('home-deck-n').textContent = deck().length + '/' + CONTENT.cards.length; }
-  function showLesson(){
+  const PARTS = [...new Set(CONTENT.cards.map(c => c.part))];
+  const THEME = {'AI basics':'Basics', 'Working with AI':'Working with AI', 'Security':'Security', 'AI in the close':'AI in the close'};
+  function renderDeckCount(){
+    const d = deck(), n = CONTENT.cards.length;
+    $('home-deck-n').textContent = d.length + '/' + n;
+    if ($('e-deck-n')){ $('e-deck-n').textContent = d.length + '/' + n; $('e-deck-bar').style.width = (100 * d.length / n) + '%'; }
+    const box = $('home-parts'); box.textContent = '';
+    PARTS.forEach(p => {
+      const all = CONTENT.cards.filter(c => c.part === p).length, got = CONTENT.cards.filter(c => c.part === p && d.includes(c.id)).length;
+      const row = el('span', 'ac-part' + (got === all ? ' done' : ''));
+      const bar = el('span', 'bar'), fill = el('i'); fill.style.width = (100 * got / all) + '%'; bar.appendChild(fill);
+      row.append(el('span', '', p), el('em', '', got === all ? '✓ ' + got + '/' + all : got + '/' + all), bar);
+      box.appendChild(row);
+    });
+  }
+  function lessonFor(){
     const f = G.failed, key = f && f.why === 'dup' ? 'dup' : f && !G.st.powers ? 'noboost' : f ? f.it.k : 'flawless';
-    const L = CONTENT.lessons.find(l => l.when === key) || CONTENT.lessons.find(l => l.when === 'flawless');
-    const c = cardById(L.card);
-    $('e-lesson-t').textContent = L.title; $('e-lesson-p').textContent = L.text;
-    $('e-lesson-card').textContent = 'Read the card: ' + c.title + ' ›'; $('e-lesson-card').onclick = () => openDeck(c.id);
+    return CONTENT.lessons.find(l => l.when === key) || CONTENT.lessons.find(l => l.when === 'flawless');
   }
-  // every close earns a card: the first four in a fixed order (basics and security first), then random ones not yet owned
-  function showNewCard(){
-    const d = deck(), first = CONTENT.firstCards.find(id => !d.includes(id));
-    const rest = CONTENT.cards.filter(c => !d.includes(c.id));
-    const id = first != null ? first : rest.length ? pick(rest).id : pick(CONTENT.cards).id, isNew = !d.includes(id);
-    if (isNew){ d.push(id); store.set('deck', d); }
-    const c = cardById(id);
-    $('e-card-eyebrow').textContent = (isNew ? 'New AI card' : 'Deck complete · AI card') + ' · ' + d.length + '/' + CONTENT.cards.length;
-    $('e-card-part').textContent = c.part; $('e-card-t').textContent = c.title;
-    $('e-card-plain').textContent = c.plain; $('e-card-fin').textContent = c.finance;
-    renderDeckCount();
+  // the card that matches the lesson if you don't have it yet; otherwise the fixed first four, then random new ones
+  function awardCard(lesson){
+    const d = deck(), rest = CONTENT.cards.filter(c => !d.includes(c.id));
+    const first = CONTENT.firstCards.find(id => !d.includes(id));
+    const id = !d.includes(lesson.card) ? lesson.card : first != null ? first : rest.length ? pick(rest).id : lesson.card;
+    const isNew = !d.includes(id); if (isNew){ d.push(id); store.set('deck', d); }
+    return {card:cardById(id), isNew, count:d.length};
   }
+  // spaced repetition: a statement you got wrong returns two closes later; otherwise an unseen one from the card's theme
+  function pickCheck(card){
+    const games = store.get('games', 0) + 1; store.set('games', games);
+    const retry = store.get('retry', []), due = retry.find(r => r.at <= games);
+    if (due){ const q = CONTENT.quiz.find(x => x.id === due.id); if (q){ store.set('retry', retry.filter(r => r !== due)); return {q, again:true}; } }
+    const seen = store.get('seenq', []), pool = CONTENT.quiz.filter(x => x.theme === THEME[card.part]);
+    const fresh = pool.filter(x => !seen.includes(x.id));
+    return {q:pick(fresh.length ? fresh : pool), again:false};
+  }
+  function showDebrief(){
+    const L = lessonFor(), f = G.failed, A = awardCard(L), c = A.card, C = pickCheck(c);
+    G.check = {q:C.q, answered:false, right:false};
+    const box = document.querySelector('#s-debrief .debrief'); box.classList.toggle('ok', !f);
+    $('d-eyebrow').textContent = 'Debrief · ' + (f ? 'failed at ' + clockAt(f.at) + (f.why === 'dup' ? ' · duplicate' : ' · missed entry') : 'flawless close');
+    $('d-title').textContent = L.title; $('d-text').textContent = L.text;
+    $('d-card-eyebrow').textContent = (A.isNew ? 'New AI card' : 'AI card') + ' · ' + A.count + '/' + CONTENT.cards.length;
+    $('d-card-part').textContent = c.part; $('d-card-t').textContent = c.title;
+    $('d-card-plain').textContent = c.plain; $('d-card-fin').textContent = c.finance;
+    $('d-pts').textContent = (C.again ? 'Second chance · ' : '') + '+' + CONTENT.quizPoints; $('d-pts').classList.remove('got');
+    $('d-q').textContent = C.q.q; $('d-why').hidden = true;
+    document.querySelectorAll('#d-ans .btn').forEach(b => { b.disabled = false; b.classList.remove('right', 'wrong'); });
+    $('d-next').querySelector('span').textContent = 'Skip to my score';
+    const fl = $('d-flip'); fl.classList.remove('open');
+    show('s-debrief'); renderDeckCount();
+    setTimeout(() => { fl.classList.add('open'); if (A.isNew) AU.sfx('ready'); }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 450);
+  }
+  function answerCheck(a){
+    const K = G && G.check; if (!K || K.answered) return;
+    K.answered = true; K.right = a === K.q.a;
+    const seen = store.get('seenq', []); if (!seen.includes(K.q.id)){ seen.push(K.q.id); store.set('seenq', seen); }
+    if (K.right){ store.set('aiiq', store.get('aiiq', 0) + 1); AU.sfx('pb'); $('d-pts').textContent = '+' + CONTENT.quizPoints + ' points'; $('d-pts').classList.add('got'); }
+    else {
+      AU.sfx('lock'); $('d-pts').textContent = 'Comes back later';
+      const r = store.get('retry', []).filter(x => x.id !== K.q.id); r.push({id:K.q.id, at:store.get('games', 0) + 2}); store.set('retry', r);
+    }
+    document.querySelectorAll('#d-ans .btn').forEach(b => { b.disabled = true; const v = b.dataset.a === 'true';
+      if (v === K.q.a) b.classList.add('right'); else if (v === a) b.classList.add('wrong'); });
+    const w = $('d-why'); w.textContent = '';
+    w.append(el('b', '', K.right ? 'Right. ' : 'Not quite. '), document.createTextNode((K.q.a ? 'True: ' : 'False: ') + K.q.why));
+    w.hidden = false;
+    $('d-next').querySelector('span').textContent = 'See my score';
+  }
+  document.querySelectorAll('#d-ans .btn').forEach(b => b.addEventListener('click', () => answerCheck(b.dataset.a === 'true')));
+  $('d-next').addEventListener('click', () => { if (G && !G.playing && $('s-debrief').classList.contains('on')) showEnd(); });
+
   function openDeck(focusId){
     const d = deck(), grid = $('deck-grid'); grid.textContent = '';
     $('deck-count').textContent = d.length + '/' + CONTENT.cards.length;
@@ -1184,73 +1241,6 @@
   $('home-deck').addEventListener('click', () => openDeck());
   $('e-deck').addEventListener('click', () => openDeck());
   $('deck-close').addEventListener('click', () => { $('deckbox').hidden = true; });
-
-  // bonus quiz: three statements, at most one per theme, 20 seconds of thinking time in total
-  const QUIZ_TIME = 20;
-  let QZ = null;
-  function startQuiz(){
-    if (!G || G.quiz || G.playing) return;
-    const byTheme = {}; CONTENT.quiz.forEach(q => (byTheme[q.theme] = byTheme[q.theme] || []).push(q));
-    const themes = Object.keys(byTheme).sort(() => Math.random() - .5).slice(0, 3);
-    QZ = {items:themes.map(t => pick(byTheme[t])), i:0, right:0, left:QUIZ_TIME, waiting:true, last:performance.now()};
-    G.quiz = QZ; $('quiz-go').disabled = true;
-    $('quizbox').hidden = false; quizShow(); requestAnimationFrame(quizTick);
-  }
-  function quizShow(){
-    const q = QZ.items[QZ.i];
-    $('quiz-theme').textContent = q.theme + ' · ' + (QZ.i + 1) + ' of 3';
-    $('quiz-dots').textContent = QZ.items.map((_, j) => j < QZ.i ? '●' : j === QZ.i ? '◉' : '○').join(' ');
-    $('quiz-q').textContent = q.q; $('quiz-why').hidden = true; $('quiz-next').hidden = true;
-    document.querySelectorAll('#quiz-ans .btn').forEach(b => { b.disabled = false; b.classList.remove('right', 'wrong'); });
-    QZ.waiting = true; QZ.last = performance.now();
-  }
-  function quizTick(now){
-    if (!QZ || QZ.done) return;
-    if (QZ.waiting){ QZ.left -= (now - QZ.last) / 1000; if (QZ.left <= 0){ QZ.left = 0; quizAnswer(null); } }
-    QZ.last = now; $('quiz-time').style.transform = 'scaleX(' + clamp(QZ.left / QUIZ_TIME, 0, 1) + ')';
-    requestAnimationFrame(quizTick);
-  }
-  function quizAnswer(a){
-    if (!QZ || !QZ.waiting) return;
-    QZ.waiting = false;
-    const q = QZ.items[QZ.i], ok = a === q.a;
-    if (ok){ QZ.right++; AU.sfx('ready'); } else AU.sfx('lock');
-    document.querySelectorAll('#quiz-ans .btn').forEach(b => { b.disabled = true; const v = b.dataset.a === 'true';
-      if (v === q.a) b.classList.add('right'); else if (a !== null && v === a) b.classList.add('wrong'); });
-    const w = $('quiz-why'); w.textContent = '';
-    w.append(el('b', '', a === null ? 'Time is up. ' : ok ? 'Right. ' : 'Not quite. '), document.createTextNode((q.a ? 'True: ' : 'False: ') + q.why));
-    w.hidden = false;
-    // out of time: the remaining statements count as unanswered
-    const last = QZ.i === 2 || QZ.left <= 0;
-    $('quiz-next').hidden = false; $('quiz-next').querySelector('span').textContent = last ? 'See my bonus' : 'Next';
-  }
-  function quizNext(){
-    if (!QZ) return;
-    if (QZ.i < 2 && QZ.left > 0){ QZ.i++; quizShow(); return; }
-    quizFinish();
-  }
-  function quizFinish(){
-    QZ.done = true; $('quizbox').hidden = true;
-    const right = QZ.right, bonus = right * CONTENT.quizPoints, iq = store.get('aiiq', 0) + right;
-    store.set('aiiq', iq);
-    $('quiz-go-t').textContent = 'AI quiz: ' + right + ' of 3 right · +' + fmt(bonus) + ' points';
-    const run = JSON.parse(JSON.stringify(G.run));
-    run.p_score += bonus; run.p_stats.quiz_right = right; if (iq > 0) run.p_stats.ai_iq = iq;
-    G.run = run; G.score = run.p_score;
-    countUp($('e-score'), run.p_score);
-    const box = document.querySelector('#e-ranks [data-cat="aiiq"] span'); if (box) box.textContent = fmt(iq) + ' right';
-    if (run.p_score > store.get(pbKey(), 0)) store.set(pbKey(), run.p_score);
-    const posted = run.p_stats.posted, flawless = !G.failed;
-    G.share = shareText(run.p_score, posted, rankFor(run.p_score), flawless);
-    const rk2 = rankFor(run.p_score); $('e-rank').textContent = rk2.name + (flawless ? ' ★' : '');
-    $('e-rank-next').textContent = rk2.next ? fmt(rk2.need) + ' points to ' + rk2.next : 'Top rank. The books are in safe hands.';
-    const lines = G.share.split('\n'); lines.splice(lines.length - 1, 0, '🧠 AI quiz ' + right + '/3 right'); G.share = lines.join('\n');
-    if (bonus > 0) AU.sfx('pb');
-    submitRun(run);
-  }
-  $('quiz-go').addEventListener('click', startQuiz);
-  $('quiz-next').addEventListener('click', quizNext);
-  document.querySelectorAll('#quiz-ans .btn').forEach(b => b.addEventListener('click', () => quizAnswer(b.dataset.a === 'true')));
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !$('deckbox').hidden) $('deckbox').hidden = true;
   });
@@ -1317,7 +1307,8 @@
       const box = document.querySelector('#e-ranks [data-cat="' + c + '"] b'); if (!box) continue;
       try {
         const rows = await api.board(c, 200), i = rows.findIndex(r => r.player_id === PLAYER);
-        box.textContent = i >= 0 ? '#' + (i + 1) + ' of ' + rows.length : '–';
+        box.textContent = i >= 0 ? '#' + (i + 1) : '–';
+        if (i >= 0) box.appendChild(el('small', '', 'of ' + rows.length));
       } catch(e){ box.textContent = '–'; }
     }
   }

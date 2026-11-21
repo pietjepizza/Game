@@ -25,7 +25,7 @@ body{background:var(--void);color:var(--text);font-family:var(--body);font-size:
 #app{position:fixed;inset:0;pointer-events:none}
 .screen{position:absolute;inset:0;display:none;pointer-events:none}
 .screen.on{display:block}
-#s-home,#s-end,#s-panel{overflow-y:auto;pointer-events:auto;-webkit-overflow-scrolling:touch}
+#s-home,#s-end,#s-panel,#s-debrief{overflow-y:auto;pointer-events:auto;-webkit-overflow-scrolling:touch}
 button,input{font:inherit}
 button{cursor:pointer}
 input:focus-visible,button:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
@@ -341,8 +341,6 @@ input::placeholder{color:#6f78a8}
 /* ---------- v3.8: AI deck, lessons, bonus quiz ---------- */
 .linkbtn{align-self:flex-start;background:none;border:0;padding:4px 0;color:var(--cyan);font:600 13px var(--body);text-align:left}
 .linkbtn:hover{text-decoration:underline}
-.quiz-btn{background:linear-gradient(100deg,#7c5cff,#a78bfa 50%,#5fd6f5);color:#08102e;box-shadow:0 0 0 1px rgba(255,255,255,.25) inset,0 10px 34px rgba(167,139,250,.35)}
-.quiz-btn:disabled{background:var(--glass-2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line-2);opacity:1;cursor:default}
 .lesson,.aicard{padding:16px 18px;display:flex;flex-direction:column;gap:6px}
 .lesson{border-color:rgba(255,184,77,.45)}
 .lesson .eyebrow{color:var(--amber)}
@@ -352,8 +350,7 @@ input::placeholder{color:#6f78a8}
 .aicard .eyebrow{color:var(--violet)}
 .part{font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .fin b,.deck-detail .fin b{display:block;font:600 10.5px var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);margin-top:4px}
-.deck-btn{font-size:15px}
-.deckbox .glass,.quizbox .glass{width:min(520px,calc(100% - 20px))}
+.deckbox .glass{width:min(520px,calc(100% - 20px))}
 .deck-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .deck-head h2{text-align:left}
 .deck-head span{font:600 13px var(--mono);color:var(--violet)}
@@ -366,9 +363,6 @@ input::placeholder{color:#6f78a8}
 .deck-detail{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:6px}
 .deck-detail[hidden]{display:none}
 .deck-detail .note{font-size:12.5px;color:var(--amber)}
-.quiz-head{display:flex;justify-content:space-between;align-items:center}
-.quiz-time{height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}
-.quiz-time i{display:block;height:100%;width:100%;transform-origin:left;background:linear-gradient(90deg,var(--violet),var(--cyan))}
 .quiz-q{font:700 20px/1.35 var(--display);color:var(--text);min-height:54px}
 .quiz-ans{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .quiz-ans .btn{font-size:18px}
@@ -378,3 +372,57 @@ input::placeholder{color:#6f78a8}
 .quiz-why b{color:var(--text)}
 .ranks{grid-template-columns:repeat(3,1fr)}
 @media (max-width:380px){.ranks b{font-size:18px}.tabs button{font-size:12px}}
+
+/* ---------- v3.9: debrief, deck progress, alignment ---------- */
+.debrief{max-width:520px;margin:0 auto;padding:calc(56px + env(safe-area-inset-top)) 18px calc(40px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
+.debrief>.eyebrow{color:var(--amber)}
+.debrief.ok>.eyebrow{color:var(--green)}
+.d-title{font:800 clamp(26px,7.4vw,36px)/1.08 var(--display);letter-spacing:-.02em}
+.d-text{font-size:15px;color:#dfe5ff;line-height:1.5}
+.flip{perspective:1200px}
+.flip-in{display:grid;transition:transform .8s cubic-bezier(.2,.8,.2,1.15);transform-style:preserve-3d;transform:rotateY(180deg)}
+.flip.open .flip-in{transform:rotateY(0)}
+.face{grid-area:1/1;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:18px}
+.face.front{padding:16px 18px;display:flex;flex-direction:column;gap:6px;border:1px solid rgba(167,139,250,.55)}
+.face.back{transform:rotateY(180deg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid rgba(167,139,250,.55);
+  background:repeating-linear-gradient(45deg,rgba(167,139,250,.08) 0 10px,transparent 10px 20px),linear-gradient(160deg,#2b1d6e,#0e163e)}
+.face.back span{font:800 44px var(--display);background:linear-gradient(100deg,#fff,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+.face.back small{font:600 11px var(--mono);letter-spacing:.3em;text-transform:uppercase;color:var(--violet)}
+.flip.open .face.front{box-shadow:0 0 0 1px rgba(167,139,250,.3),0 14px 50px rgba(124,92,255,.35)}
+.card-top,.dq-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.aicard .card-top .eyebrow{color:var(--violet)}
+.aicard h3{font:800 19px/1.2 var(--display);color:var(--text);margin:2px 0 0}
+.aicard p{font-size:14.5px;color:#dfe5ff;line-height:1.5}
+.dq{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.dq .eyebrow{color:var(--violet)}
+.dq-pts{font:600 12px var(--mono);color:var(--cyan)}
+.dq .quiz-q{min-height:0;font-size:18px}
+.dq-pts.got{color:var(--green)}
+@media (prefers-reduced-motion:reduce){.flip-in{transition:none}}
+/* home: deck progress per part */
+.academy{display:flex;flex-direction:column;gap:10px;padding:14px 16px;text-align:left;color:var(--text);font:inherit;cursor:pointer;width:100%}
+.academy:hover{border-color:var(--line-2)}
+.ac-head{display:flex;justify-content:space-between;align-items:baseline;font:700 16px var(--display)}
+.ac-head b{font:600 14px var(--mono);color:var(--cyan)}
+.ac-parts{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+.ac-part{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:3px 6px;font-size:12.5px;color:var(--muted)}
+.ac-part em{font:600 11.5px var(--mono);font-style:normal;color:var(--text)}
+.ac-part.done em{color:var(--green)}
+.bar{grid-column:1/-1;display:block;height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--violet),var(--cyan));border-radius:2px}
+.ac-part.done .bar i{background:var(--green)}
+.ac-foot{font-size:12.5px;color:var(--cyan)}
+/* end: compact deck strip */
+.deckstrip{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:12px;padding:12px 16px;color:var(--text);font:600 14px var(--body);cursor:pointer;width:100%;text-align:left}
+.deckstrip .bar{grid-column:auto}
+.deckstrip b{font:600 13px var(--mono);color:var(--cyan)}
+.deckstrip .ds-go{color:var(--cyan);font-size:18px;line-height:1}
+/* alignment: rank boxes and score breakdown stay on one line */
+.ranks div{min-width:0}
+.ranks b{font-size:clamp(17px,5vw,22px);white-space:nowrap}
+.ranks b small{font:500 12px var(--body);color:var(--muted);margin-left:3px}
+.ranks span,.ranks small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.breakdown span{white-space:nowrap}
+@media (max-width:380px){.ranks div{padding:10px}.ranks b small{display:block;margin:0;font-size:11px}.ac-parts{grid-template-columns:1fr;gap:7px}}
+.dq-head{flex-wrap:nowrap}.dq-pts{white-space:nowrap}
+.ac-part>span:first-child{white-space:nowrap;min-width:0}

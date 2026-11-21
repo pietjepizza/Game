@@ -26,9 +26,9 @@ The start screen has a "How it works" panel explaining every booster and entry t
 
 Texts live in `content.js` (English; edit there, no code changes needed).
 
-- **AI deck**: every close earns an AI card (39 cards in four parts: AI basics, working with AI, security, AI in the close). Each card has a plain explanation and a finance-operations example. The first four are fixed (LLM, approved tools only, hallucination, information classification), then random cards not yet collected. The deck is on the home screen and the end screen and is saved in the browser.
-- **Lesson from this close**: the end screen explains the mistake that ended the close (duplicate posted, no boosters used, or the kind of entry missed) or, after a flawless close, what made it work, with a link to the matching card.
-- **Bonus AI quiz**: optional, after each close. Three true/false statements from three different themes, 20 seconds in total, +150 points per right answer, with a short explanation after each answer. Right answers add up to your **AI IQ**.
+- **Debrief** (between the close and the score, based on research into learning games: feedback right after the mistake, retrieval practice, spaced repetition): one line on what happened and why, a new AI card that flips open, and one true/false check about that card (+150 points, no timer). Statements you get wrong come back two closes later as a "second chance". "Skip to my score" is always there.
+- **AI deck**: 39 cards in four parts (AI basics, working with AI, security, AI in the close), each with a plain explanation and a finance-operations example. You get the card that matches your mistake first, then the fixed first four (LLM, approved tools only, hallucination, information classification), then random new ones. The home screen shows progress per part; the end screen shows a compact deck bar. Saved in the browser.
+- **AI IQ**: every right check adds one; it has its own leaderboard tab.
 
 Security themes in the content: use only approved tools (Copilot and other approved tools), respect the information classification (Non-business, Public, Confidential, Company secret, Top secret), and ask your manager when unsure.
 
