@@ -8,7 +8,7 @@
   const CFG = {
     url: 'https://evdtpvbacpibeasrczhu.supabase.co',
     key: 'sb_publishable_Y1GmwdTaooG8yqFTTTZApQ_WVwIwyZz',
-    version: '3.9.1',
+    version: '3.10.0',
     dur: 90
   };
   const $ = id => document.getElementById(id);
@@ -1346,5 +1346,256 @@
   applySeason(); renderDeckCount();
   last = performance.now(); requestAnimationFrame(frame);
   loadBoard('home'); loadSeason(); flushPending();
-  window.CTB = {state:() => G, view:V, usePower, layout:() => ({...L})};
+
+  /* ---------- How to play: a short, optional animation with the real entry cards ---------- */
+  const HOW = (() => {
+    const cv = $('how-cv'), c = cv.getContext('2d');
+    let w = 0, h = 0, K = 1, VW = 360, VH = 300, i = 0, t = 0, last = 0, raf = 0, open = false;
+    const PTS = {R:10, C:30, IC:20, U:25, P:20};
+    const LINE = () => VH - 62;
+    const SCENES = [
+      {t:'Tap every entry before it hits the close line', p:'Entries fall toward the period-end close. One tap posts a journal entry. Entries are worth more as the clock runs.', d:6.5,
+        ev:[{k:'R', sub:'Accrual · €12,400', x:.08, at:.2, taps:[2.3], tag:'TAP TO POST'}, {k:'R', sub:'Rent · €18,500', x:.9, at:1.0, taps:[3.1]},
+            {k:'R', sub:'Payroll · €41,000', x:.45, at:2.0, taps:[4.0]}, {k:'R', sub:'Freight · €6,730', x:.9, at:3.0, taps:[5.0]}]},
+      {t:'First time right', p:'Miss a single entry and the close fails: you can’t tell which one was material. Survive all 90 seconds for a 50% flawless bonus.', d:6.5,
+        ev:[{k:'R', sub:'Accrual · €12,400', x:.1, at:.2, taps:[1.9]}, {k:'R', sub:'Reclass · €3,950', x:.85, at:.8, out:'miss'}]},
+      {t:'Bigger entries need more taps', p:'Complex deals need 3 taps, intercompany 2. The dots show the taps left. Urgent entries fall fast.', d:6.8,
+        ev:[{k:'C', sub:'Revenue split · €4.1M', x:.06, at:.2, fall:3.6, taps:[1.5, 1.9, 2.3], tag:'3 TAPS'},
+            {k:'IC', sub:'NL01 → US02 · €220k', x:.92, at:1.1, fall:3.6, taps:[3.1, 3.5], tag:'2 TAPS'},
+            {k:'U', sub:'CFO ask · before 10:00', x:.45, at:3.5, fall:1.8, taps:[4.8], tag:'FAST · 1 TAP'}]},
+      {t:'Read before you tap', p:'Never post a duplicate: that fails the close too. Let AI-ready entries pass, they are not a miss. Wait until an approval says Approved, then tap.', d:7.2,
+        ev:[{k:'D', sub:'Invoice #4471 again', x:.06, at:.2, fall:3.2, out:'pass', tag:'DON’T POST'},
+            {k:'X', sub:'Bank match · 412 lines', x:.92, at:1.0, fall:3.2, out:'pass', tag:'LET IT PASS'},
+            {k:'P', sub:'Above €1M · sign-off', x:.45, at:2.3, fall:3.8, lock:4.0, taps:[5.0], tag:'WAIT FOR APPROVED'}]},
+      {t:'ESSA boosters', p:'Posting by hand charges four boosters. Tap one when it is full: Eliminate clears ~45%, Simplify makes deals 1 tap, Standardize slows entries into lanes, Automate lets a bot post routine work.', d:7.2, boost:true,
+        ev:[{k:'R', sub:'Accrual · €12,400', x:.08, at:.1, taps:[1.5]}, {k:'R', sub:'Rent · €18,500', x:.9, at:.5, taps:[2.0]},
+            {k:'R', sub:'Prepayment · €8,200', x:.45, at:1.1, elim:3.1}, {k:'C', sub:'Lease · €1.3M', x:.08, at:1.5, elim:3.1},
+            {k:'R', sub:'Depreciation · €9,100', x:.9, at:2.0, elim:3.1}, {k:'R', sub:'Freight · €6,730', x:.45, at:3.4, taps:[5.4]}]},
+      {t:'Streaks, clutch saves and spikes', p:'Post quickly in a row for a streak multiplier up to ×2. A post just above the line is a clutch save: +50%. Survive the month-end spikes for a bonus.', d:7, streak:true, ev:[]},
+      {t:'After the close', p:'A short debrief explains what happened and hands you an AI card. Answer one true/false check for +150 and a higher AI IQ. Then climb the leaderboard. AI unlocks in January.', d:8, after:true}
+    ];
+    // the streak scene: a fast run of journal entries, then a spike with more of them
+    (() => {
+      const S = SCENES[5], subs = KIND.R.subs; let n = 0;
+      for (let a = .1; a < 6; a += a < 3.4 ? .55 : .32){
+        const clutch = n === 4;
+        S.ev.push({k:'R', sub:subs[n % subs.length], x:[.08, .9, .45, .25, .7][n % 5], at:a, fall:2.4, taps:[a + (clutch ? 2.3 : 1.2 + (n % 3) * .15)], clutch});
+        n++;
+      }
+    })();
+
+    function size(){
+      const r = cv.getBoundingClientRect(); if (!r.width) return;
+      const d = Math.min(window.devicePixelRatio || 1, 2);
+      w = r.width; h = r.height; cv.width = Math.round(w * d); cv.height = Math.round(h * d);
+      K = Math.min(1, w / 380); VW = w / K; VH = h / K;
+      c.setTransform(d * K, 0, 0, d * K, 0, 0);
+    }
+    const ease = x => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
+    function finger(x, y, a, press){
+      if (a <= 0) return;
+      c.save(); c.globalAlpha = a;
+      if (press > 0 && press < 1){ c.strokeStyle = 'rgba(95,214,245,' + (1 - press) + ')'; c.lineWidth = 2.5; c.beginPath(); c.arc(x, y, 10 + press * 26, 0, TAU); c.stroke(); }
+      c.shadowColor = 'rgba(0,0,0,.5)'; c.shadowBlur = 10; c.fillStyle = 'rgba(255,255,255,.92)';
+      c.beginPath(); c.arc(x, y, press > 0 && press < .3 ? 9 : 11, 0, TAU); c.fill(); c.restore();
+    }
+    function pop(txt, x, y, age, col){
+      if (age < 0 || age > .9) return;
+      c.save(); c.globalAlpha = 1 - age / .9; c.fillStyle = col || '#5fd6f5'; c.font = '700 14px "IBM Plex Mono", monospace'; c.textAlign = 'center';
+      c.fillText(txt, x, y - age * 34); c.restore();
+    }
+    function tag(txt, x, y, col){
+      c.font = '700 11px "IBM Plex Sans", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      const tw = c.measureText(txt).width + 16;
+      c.fillStyle = 'rgba(6,10,34,.9)'; rr(c, x - tw / 2, y, tw, 18, 9); c.fill();
+      c.strokeStyle = col; c.lineWidth = 1; rr(c, x - tw / 2 + .5, y + .5, tw - 1, 17, 9); c.stroke();
+      c.fillStyle = col; c.fillText(txt, x, y + 9.5); c.textBaseline = 'alphabetic';
+    }
+    function banner(txt, col, a){
+      if (a <= 0) return;
+      c.save(); c.globalAlpha = a; c.font = '700 12px "IBM Plex Mono", monospace'; c.textAlign = 'center';
+      const tw = c.measureText(txt).width + 24; c.fillStyle = 'rgba(6,10,34,.92)'; rr(c, VW / 2 - tw / 2, 12, tw, 26, 13); c.fill();
+      c.strokeStyle = col; c.lineWidth = 1; rr(c, VW / 2 - tw / 2 + .5, 12.5, tw - 1, 25, 13); c.stroke();
+      c.fillStyle = col; c.fillText(txt, VW / 2, 29); c.restore();
+    }
+    function closeLine(label){
+      const L = LINE(); c.save(); c.globalCompositeOperation = 'lighter';
+      const lg = c.createLinearGradient(0, L - 16, 0, L + 16); lg.addColorStop(0, 'rgba(255,60,90,0)'); lg.addColorStop(.5, 'rgba(255,70,100,.4)'); lg.addColorStop(1, 'rgba(255,60,90,0)');
+      c.fillStyle = lg; c.fillRect(0, L - 16, VW, 32); c.restore();
+      c.fillStyle = 'rgba(255,170,185,.9)'; c.fillRect(0, L - .75, VW, 1.5);
+      if (label){ c.fillStyle = 'rgba(255,120,140,.75)'; c.font = '600 10px "IBM Plex Mono", monospace'; c.textAlign = 'center'; c.fillText('P E R I O D - E N D   C L O S E', VW / 2, L + 20); }
+    }
+    // one falling entry; returns where it is so taps, pops and the failure frame can follow it
+    function entry(e, t){
+      const fall = e.fall || 3.4, L = LINE(), x = 6 + e.x * (VW - CW - 12);
+      const p = (t - e.at) / fall; if (p < 0) return null;
+      let y = -CH + (L) * p;
+      const done = (e.taps || []).filter(tp => t >= tp).length, total = (e.taps || []).length;
+      const tp = total ? e.taps[total - 1] : 99, posted = total && t >= tp;
+      if (e.elim != null && t >= e.elim + .35) return null;
+      if (posted && t > tp + .35) return {x, y, gone:true, tp};
+      if (e.out === 'miss' && p >= 1) y = L - CH + 2;
+      if (e.out === 'pass' && p > 1.6) return {x, y, gone:true};
+      const it = {k:e.k, sub:e.sub, taps:Math.max(total - done, posted ? 0 : 1), hit:posted ? 1 : 0, lock:e.lock != null && t < e.lock};
+      if (e.k === 'D' || e.k === 'X') it.taps = 0;
+      c.save();
+      if (posted){ const q = (t - tp) / .35; c.globalAlpha = 1 - q; c.translate(x + CW / 2, y + CH / 2); c.scale(1 + q * .12, 1 + q * .12); c.translate(-(x + CW / 2), -(y + CH / 2)); }
+      if (e.elim != null && t >= e.elim){ const q = (t - e.elim) / .35; c.globalAlpha = 1 - q; }
+      if (e.out === 'pass' && p > 1) c.globalAlpha = clamp(1 - (p - 1) / .6, 0, 1);
+      c.drawImage(sprite(it), x - PAD, y - PAD, CW + PAD * 2, CH + PAD * 2);
+      c.restore();
+      return {x, y, p, it};
+    }
+    function playScene(S, t){
+      const L = LINE(), boxes = [];
+      closeLine(!S.boost);
+      for (const e of S.ev){ const b = entry(e, t); if (b) boxes.push([e, b]); }
+      // tags under the first cards, on top
+      for (const [e, b] of boxes) if (e.tag && !b.gone && t < (e.taps ? e.taps[e.taps.length - 1] : 99)){
+        const col = e.k === 'D' ? '#ff5d73' : e.k === 'X' ? '#a78bfa' : KIND[e.k].col;
+        tag(e.tag, b.x + CW / 2, b.y + CH + 6, col);
+      }
+      let fx = null, fy = null, fa = 0, press = 0;
+      for (const e of S.ev){
+        const fall = e.fall || 3.4, x = 6 + e.x * (VW - CW - 12);
+        for (const tp of (e.taps || [])){
+          const y = -CH + L * ((tp - e.at) / fall) + CH / 2, yNow = -CH + L * ((Math.min(t, tp) - e.at) / fall) + CH / 2;
+          if (t > tp - .45 && t < tp + .25){ fx = x + CW / 2 + 18; fy = yNow + 6; fa = clamp(Math.min((t - tp + .45) / .2, (tp + .25 - t) / .2), 0, 1); press = (t - tp) / .45; }
+          if (tp === e.taps[e.taps.length - 1]) pop(e.clutch ? 'CLUTCH +50%' : '+' + (PTS[e.k] || 10), x + CW / 2, y - 6, t - tp, e.clutch ? '#ffb84d' : '#5fd6f5');
+        }
+        if (e.out === 'pass'){ const tc = e.at + fall; pop(e.k === 'D' ? 'not posted · +10' : 'not a miss', x + CW / 2, L - 8, t - tc, e.k === 'D' ? '#4fe0a0' : '#a78bfa'); }
+        if (e.elim != null) pop('eliminated', x + CW / 2, -CH + L * ((e.elim - e.at) / fall) + CH / 2, t - e.elim, '#4fe0a0');
+      }
+      if (fx != null) finger(fx, fy, fa, press);
+      if (S.boost) boosters(t);
+      if (S.streak) streak(S, t);
+      // a missed entry: freeze, mark it, close failed
+      const miss = S.ev.find(e => e.out === 'miss');
+      if (miss && t >= miss.at + (miss.fall || 3.4)){
+        const x = 6 + miss.x * (VW - CW - 12), y = L - CH + 2, q = clamp((t - miss.at - (miss.fall || 3.4)) / .3, 0, 1);
+        c.fillStyle = 'rgba(14,2,10,' + (.7 * q) + ')'; c.fillRect(0, 0, VW, VH);
+        c.drawImage(sprite({k:'R', sub:miss.sub, taps:1}), x - PAD, y - PAD, CW + PAD * 2, CH + PAD * 2);
+        c.strokeStyle = 'rgba(255,93,115,' + q + ')'; c.lineWidth = 3; rr(c, x - 3, y - 3, CW + 6, CH + 6, 14); c.stroke();
+        c.globalAlpha = q; c.textAlign = 'center'; c.shadowColor = 'rgba(255,93,115,.8)'; c.shadowBlur = 22; c.fillStyle = '#fff';
+        c.font = '800 34px "Sora", sans-serif'; c.fillText('Close failed', VW / 2, VH * .36);
+        c.shadowBlur = 0; c.fillStyle = '#ffc2cb'; c.font = '500 14px "IBM Plex Sans", sans-serif';
+        c.fillText('One missed entry. First time right, or not at all.', VW / 2, VH * .36 + 26, VW - 24); c.globalAlpha = 1;
+      }
+    }
+    function boosters(t){
+      const names = [['Eliminate', 2.6], ['Simplify', 6], ['Standardize', 7.5], ['Automate', 5]], y = LINE() + 14, gap = 6, bw = (VW - 12 - gap * 3) / 4;
+      names.forEach(([n, full], j) => {
+        const x = 6 + j * (bw + gap), used = j === 0 && t >= 2.9, ch = used ? Math.max(0, 1 - (t - 2.9) / 4) : clamp(t / full, 0, 1), ready = ch >= 1 && !used;
+        c.fillStyle = used ? 'rgba(79,224,160,.18)' : 'rgba(10,16,48,.9)'; rr(c, x, y, bw, 36, 10); c.fill();
+        c.fillStyle = used ? 'rgba(79,224,160,.35)' : 'rgba(95,214,245,.22)'; rr(c, x, y + 36 - 36 * ch, bw, 36 * ch, 10); c.fill();
+        c.strokeStyle = ready ? 'rgba(95,214,245,' + (.6 + .4 * Math.sin(t * 10)) + ')' : used ? '#4fe0a0' : 'rgba(190,205,255,.22)'; c.lineWidth = ready ? 2 : 1;
+        rr(c, x + .5, y + .5, bw - 1, 35, 10); c.stroke();
+        c.fillStyle = '#f4f6ff'; c.font = '700 11px "IBM Plex Sans", sans-serif'; c.textAlign = 'center'; c.fillText(n, x + bw / 2, y + 22, bw - 6);
+      });
+      if (t > 2.45 && t < 3.15){ const tp = 2.9; finger(6 + bw / 2 + 14, y + 22, clamp(Math.min((t - 2.45) / .2, (3.15 - t) / .2), 0, 1), (t - tp) / .45); }
+      if (t >= 2.9){ c.fillStyle = 'rgba(79,224,160,' + Math.max(0, .25 - (t - 2.9) * .5) + ')'; c.fillRect(0, 0, VW, VH); }
+      banner('ELIMINATE · ~45% cleared', '#4fe0a0', t > 3 && t < 5.6 ? Math.min(1, (t - 3) * 4, (5.6 - t) * 4) : 0);
+      if (t < 2.6) banner('Posting charges the boosters ↓', '#5fd6f5', Math.min(1, t * 3, (2.6 - t) * 4));
+    }
+    function streak(S, t){
+      const posts = S.ev.filter(e => t >= e.taps[0]).length, n = 6 + posts, m = n >= 25 ? 1.5 : n >= 10 ? 1.2 : 1;
+      const lastTap = Math.max(0, ...S.ev.filter(e => t >= e.taps[0]).map(e => e.taps[0])), bump = clamp(1 - (t - lastTap) / .3, 0, 1);
+      c.save(); c.textAlign = 'left'; c.font = '700 ' + (15 + bump * 3) + 'px "IBM Plex Mono", monospace'; c.fillStyle = m > 1 ? '#ffb84d' : '#dfe5ff';
+      c.fillText('🔥 ' + n + (m > 1 ? '  ×' + m : ''), 12, VH - 12); c.restore();
+      if (t > 3 && t < 3.6) banner('SPIKE IN 3 S · extra volume', '#ffb84d', 1);
+      if (t >= 3.6) banner('MONTH-END SPIKE · volume ×1.8', '#ff5d73', Math.min(1, (t - 3.6) * 4));
+    }
+    function afterScene(t){
+      const cx = VW / 2, cw = Math.min(VW - 40, 300), x0 = cx - cw / 2;
+      // the AI card flips open
+      const fl = clamp((t - .4) / .6, 0, 1), sx = Math.abs(Math.cos(fl * Math.PI)), front = fl > .5;
+      c.save(); c.translate(cx, 18); c.scale(Math.max(.02, sx), 1); c.translate(-cx, -18);
+      const g2 = c.createLinearGradient(x0, 18, x0 + cw, 120);
+      g2.addColorStop(0, front ? 'rgba(60,40,140,.9)' : '#2b1d6e'); g2.addColorStop(1, 'rgba(14,22,62,.95)');
+      c.fillStyle = g2; rr(c, x0, 18, cw, 96, 14); c.fill(); c.strokeStyle = 'rgba(167,139,250,.7)'; c.lineWidth = 1; rr(c, x0 + .5, 18.5, cw - 1, 95, 14); c.stroke();
+      c.textAlign = 'left';
+      if (front){
+        c.fillStyle = '#a78bfa'; c.font = '600 10px "IBM Plex Mono", monospace'; c.fillText('NEW AI CARD · SECURITY', x0 + 14, 38);
+        c.fillStyle = '#fff'; c.font = '800 18px "Sora", sans-serif'; c.fillText('Approved tools only', x0 + 14, 62, cw - 28);
+        c.fillStyle = '#dfe5ff'; c.font = '500 12.5px "IBM Plex Sans", sans-serif';
+        c.fillText('Work data goes only into approved tools', x0 + 14, 84, cw - 28); c.fillText('such as Copilot. Ask your manager if unsure.', x0 + 14, 101, cw - 28);
+      } else { c.textAlign = 'center'; c.fillStyle = '#fff'; c.font = '800 34px "Sora", sans-serif'; c.fillText('AI', cx, 76); }
+      c.restore();
+      // one check question
+      const qa = clamp((t - 1.4) / .4, 0, 1); if (qa <= 0) return;
+      c.save(); c.globalAlpha = qa; c.textAlign = 'center';
+      c.fillStyle = '#fff'; c.font = '700 14.5px "Sora", sans-serif'; c.fillText('Unsure if a tool is allowed? Ask first.', cx, 142, VW - 24);
+      const bw = (cw - 10) / 2, by = 154, ans = t >= 3.1;
+      [['True', true], ['False', false]].forEach(([lab, v], j) => {
+        const bx = x0 + j * (bw + 10), right = ans && v;
+        c.fillStyle = right ? 'rgba(79,224,160,.18)' : 'rgba(10,16,48,.9)'; rr(c, bx, by, bw, 36, 10); c.fill();
+        c.strokeStyle = right ? '#4fe0a0' : 'rgba(190,205,255,.25)'; c.lineWidth = 1; rr(c, bx + .5, by + .5, bw - 1, 35, 10); c.stroke();
+        c.fillStyle = right ? '#4fe0a0' : '#dfe5ff'; c.font = '700 15px "Sora", sans-serif'; c.fillText(lab, bx + bw / 2, by + 23);
+      });
+      c.restore();
+      if (t > 2.65 && t < 3.35) finger(x0 + bw / 2 + 16, by + 24, clamp(Math.min((t - 2.65) / .2, (3.35 - t) / .2), 0, 1), (t - 3.1) / .45);
+      pop('+150 · AI IQ +1', x0 + bw / 2, by + 62, t - 3.1, '#4fe0a0');
+      // the leaderboard slides in
+      const la = clamp((t - 4.1) / .5, 0, 1); if (la <= 0) return;
+      c.save(); c.globalAlpha = la; c.translate(0, (1 - la) * 16);
+      const ty = 206; c.font = '600 11px "IBM Plex Sans", sans-serif';
+      ['🏆 Score', '📒 Entries', '🧠 AI IQ'].forEach((lab, j) => {
+        const tw = (cw - 8) / 3, tx = x0 + j * (tw + 4), on = j === (t > 6.2 ? 2 : 0);
+        c.fillStyle = on ? 'rgba(60,80,170,.6)' : 'rgba(10,16,48,.8)'; rr(c, tx, ty, tw, 22, 7); c.fill();
+        c.fillStyle = on ? '#fff' : '#a3acd9'; c.textAlign = 'center'; c.fillText(lab, tx + tw / 2, ty + 15);
+      });
+      const rows = t > 6.2 ? [['1', 'You', '12 right'], ['2', 'A. Colleague', '11 right'], ['3', 'B. Colleague', '9 right']] : [['1', 'You', '11,240'], ['2', 'A. Colleague', '10,880'], ['3', 'B. Colleague', '9,410']];
+      rows.forEach(([r, n, v], j) => {
+        const ry = ty + 30 + j * 21; if (ry > VH - 8) return;
+        c.textAlign = 'left'; c.fillStyle = j === 0 ? '#ffb84d' : '#a3acd9'; c.font = '600 12px "IBM Plex Mono", monospace'; c.fillText(r, x0 + 4, ry + 12);
+        c.fillStyle = j === 0 ? '#fff' : '#dfe5ff'; c.font = (j === 0 ? '700' : '500') + ' 12.5px "IBM Plex Sans", sans-serif'; c.fillText(n, x0 + 24, ry + 12);
+        c.textAlign = 'right'; c.fillStyle = '#5fd6f5'; c.font = '600 12px "IBM Plex Mono", monospace'; c.fillText(v, x0 + cw - 4, ry + 12);
+      });
+      c.restore();
+    }
+    function caption(){
+      const S = SCENES[i];
+      $('how-n').textContent = (i + 1) + ' of ' + SCENES.length; $('how-t').textContent = S.t; $('how-p').textContent = S.p;
+      $('how-back').disabled = i === 0;
+      $('how-next').querySelector('span').textContent = i === SCENES.length - 1 ? 'Got it · let’s play' : 'Next';
+    }
+    function go(n){ i = clamp(n, 0, SCENES.length - 1); t = 0; caption(); }
+    function frame(now){
+      if (!open) return;
+      t += Math.min(.05, (now - last) / 1000); last = now;
+      const S = SCENES[i];
+      if (t > S.d){ if (i < SCENES.length - 1) go(i + 1); else t = S.d; }
+      c.clearRect(0, 0, VW, VH);
+      if (S.after) afterScene(t); else playScene(S, t);
+      const segs = $('how-seg').children;
+      for (let j = 0; j < segs.length; j++) segs[j].firstChild.style.width = (j < i ? 100 : j > i ? 0 : 100 * Math.min(1, t / S.d)) + '%';
+      raf = requestAnimationFrame(frame);
+    }
+    function show(){
+      if (G && G.playing) return;
+      const seg = $('how-seg'); seg.textContent = ''; SCENES.forEach(() => { const s = el('i'); s.appendChild(el('b')); seg.appendChild(s); });
+      $('howbox').hidden = false; open = true; size(); go(0);
+      last = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(frame);
+      $('how-next').focus();
+    }
+    function hide(play){
+      open = false; cancelAnimationFrame(raf); $('howbox').hidden = true;
+      if (play){ const n = $('name'); if (n) n.focus({preventScroll:true}); const f = $('f-start'); if (f) f.scrollIntoView({block:'center', behavior:'smooth'}); }
+      else $('how-go').focus();
+    }
+    $('how-go').addEventListener('click', show);
+    $('how-x').addEventListener('click', () => hide(false));
+    $('how-back').addEventListener('click', () => go(i - 1));
+    $('how-next').addEventListener('click', () => { if (i === SCENES.length - 1) hide(true); else go(i + 1); });
+    addEventListener('resize', () => { if (open) size(); });
+    document.addEventListener('keydown', e => {
+      if (!open) return;
+      if (e.key === 'Escape') hide(false);
+      else if (e.key === 'ArrowRight') go(i + 1);
+      else if (e.key === 'ArrowLeft') go(i - 1);
+    });
+    return {show, hide, state:() => ({open, scene:i, t})};
+  })();
+
+  window.CTB = {state:() => G, view:V, usePower, layout:() => ({...L}), how:HOW};
 })();

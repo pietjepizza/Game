@@ -5,6 +5,9 @@ Browser game for a Finance Operations team (~125 people), handed out before Chri
 ## Message the game must carry
 Volume keeps growing; you cannot scale it with people. ESSA (eliminate, simplify, standardize, automate) is the foundation to fix processes; AI is the extra enabler on top. Goal: people become AI-native and upskilled in using AI in daily work, so the team can handle more volume.
 
+## Status (v3.10)
+Optional "How to play" animation (`HOW` in game.js, overlay `#howbox`, button `#how-go` on home under the start form): 7 scripted scenes (~48 s, auto-advance, story-style progress segments, Back/Next, arrows, Esc) drawn on `#how-cv` with the real card sprites (`sprite()`), a finger with tap ripples, the close line, boosters, streak/spike banners and a mini debrief + leaderboard. Last button "Got it · let's play" closes and focuses the name field. `CTB.how` exposes show/hide/state for tests.
+
 ## Status (v3.9.1)
 Owner: the title appeared twice (intro canvas title with a scanline bar that looked like a half shadow, then the home title). The intro no longer draws the title; act 4 only types the tagline (T.tag 4.6) and the home screen builds the title once.
 

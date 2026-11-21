@@ -426,3 +426,21 @@ input::placeholder{color:#6f78a8}
 @media (max-width:380px){.ranks div{padding:10px}.ranks b small{display:block;margin:0;font-size:11px}.ac-parts{grid-template-columns:1fr;gap:7px}}
 .dq-head{flex-wrap:nowrap}.dq-pts{white-space:nowrap}
 .ac-part>span:first-child{white-space:nowrap;min-width:0}
+
+/* ---------- v3.10: How to play ---------- */
+.how-btn{font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px}
+.how-btn .play{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:linear-gradient(100deg,var(--cyan),var(--violet));color:#08102e;font-size:10px;padding-left:2px}
+.how-btn small{color:var(--muted);font:500 12.5px var(--body)}
+.howbox{position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:rgba(3,5,18,.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);pointer-events:auto;padding:12px}
+.howbox[hidden]{display:none}
+.how-in{width:min(440px,100%);max-height:calc(100dvh - 24px);display:flex;flex-direction:column;gap:12px;padding:14px;overflow:auto}
+.how-top{display:flex;align-items:center;gap:10px}
+.how-seg{flex:1;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px}
+.how-seg i{height:3px;border-radius:2px;background:rgba(255,255,255,.14);overflow:hidden;display:block}
+.how-seg i b{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--violet))}
+.how-x{width:32px;height:32px;border-radius:50%;border:1px solid var(--line-2);background:transparent;color:var(--text);font-size:14px;flex:none;cursor:pointer}
+#how-cv{width:100%;height:clamp(250px,44dvh,340px);display:block;border-radius:14px;background:radial-gradient(120% 80% at 50% 0%,rgba(40,60,160,.35),rgba(4,7,22,.9));border:1px solid var(--line)}
+.how-cap{min-height:104px;display:flex;flex-direction:column;gap:4px}
+.how-cap h2{font:800 22px/1.15 var(--display)}
+.how-cap p{font-size:14.5px;line-height:1.5;color:#dfe5ff}
+.how-nav{display:grid;grid-template-columns:1fr 2fr;gap:10px}

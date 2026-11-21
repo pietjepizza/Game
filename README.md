@@ -15,6 +15,10 @@ The game opens on a dark gate ("Tap to begin", which also unlocks sound), follow
 
 Skip with the button or Esc; it is skipped automatically for players who prefer reduced motion, and with `?skipintro` in the URL.
 
+## How to play (optional animation)
+
+On the home screen, "▶ How to play" opens a short animation (about 45 seconds, seven scenes) that uses the real entry cards: tapping entries before the close line, first time right, multi-tap entries, what not to post, the ESSA boosters, streaks and spikes, and the debrief after the close. Next/Back, arrow keys and Esc work; "Got it · let's play" returns to the name field. Players who skip it lose nothing.
+
 ## How it works in the game
 
 Mechanics borrowed from popular games (mechanics only, no names or looks): a **streak** multiplier for posting quickly in a row (up to ×2), **clutch saves** (+50% for posting just above the line), two announced **month-end spikes** with a bonus for surviving them, a **personal best** shown during the game, a **career rank** from Intern to CFO, **Play again** right at the top of the end screen, and a Wordle-style **Share result** that copies a spoiler-free summary with a 10-block timeline for Teams.
