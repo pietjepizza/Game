@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=3.10.0">
+<link rel="stylesheet" href="style.css?v=3.11.0">
 </head>
 <body>
 <canvas id="world" aria-hidden="true"></canvas>
@@ -67,7 +67,7 @@
           <li><b>Streak</b> Post by hand without a pause of more than 1.6 seconds. 10 in a row gives ×1.2, 25 gives ×1.5, 50 gives ×2.</li>
           <li><b>Clutch save</b> Post an entry just above the close line for +50% on that entry.</li>
           <li><b>Month-end spikes</b> Twice per close, extra volume hits for 6 seconds, with a 3-second warning. Survive a spike for a bonus.</li>
-          <li><b>Debrief and AI deck</b> After every close, a short debrief explains what happened and hands you an AI card for your deck (AI basics, working with AI, security, AI in the close). Answer its true/false check right for +150 points and a higher AI IQ. Statements you get wrong come back later.</li>
+          <li><b>Debrief and AI deck</b> Every close earns an AI card for your deck (AI basics, working with AI, security, AI in the close) and one bonus true/false question: +150 points and a higher AI IQ when you get it right. Statements you get wrong come back later.</li>
           <li><b>Rank</b> Your score earns a rank, from Intern to CFO. Beat your personal best and share your result with colleagues.</li>
         </ul>
 
@@ -127,68 +127,33 @@
     </div>
   </section>
 
-  <!-- ============ DEBRIEF (between the close and the score) ============ -->
-  <section id="s-debrief" class="screen">
-    <div class="debrief">
-      <div class="eyebrow" id="d-eyebrow"></div>
-      <h2 class="d-title" id="d-title"></h2>
-      <p class="d-text" id="d-text"></p>
-      <div class="flip" id="d-flip">
-        <div class="flip-in">
-          <div class="face back" aria-hidden="true"><span>AI</span><small>card</small></div>
-          <div class="face front aicard">
-            <div class="card-top"><span class="eyebrow" id="d-card-eyebrow"></span><span class="part" id="d-card-part"></span></div>
-            <h3 id="d-card-t"></h3>
-            <p id="d-card-plain"></p>
-            <p class="fin"><b>In finance operations</b> <span id="d-card-fin"></span></p>
-          </div>
-        </div>
-      </div>
-      <div class="glass dq">
-        <div class="dq-head"><span class="eyebrow">Check yourself</span><span class="dq-pts" id="d-pts">+150</span></div>
-        <p class="quiz-q" id="d-q"></p>
-        <div class="quiz-ans" id="d-ans">
-          <button class="btn ghost" type="button" data-a="true">True</button>
-          <button class="btn ghost" type="button" data-a="false">False</button>
-        </div>
-        <div class="quiz-why" id="d-why" hidden></div>
-      </div>
-      <button class="btn primary" id="d-next" type="button"><span>Skip to my score</span></button>
-    </div>
-  </section>
-
-  <!-- ============ END ============ -->
+  <!-- ============ END: one screen, Play again always in reach ============ -->
   <section id="s-end" class="screen">
     <div class="end">
-      <div class="eyebrow" id="e-eyebrow"></div>
-      <h2 class="big" id="e-title">Books closed.</h2>
-      <div class="final glass">
-        <span>Final score</span>
-        <b id="e-score">0</b>
-        <div class="breakdown" id="e-breakdown"></div>
+      <span class="r-chip" id="e-chip"><i></i><span id="e-chip-t"></span></span>
+      <div class="r-hero"><b class="r-score" id="e-score">0</b><div class="r-sub" id="e-sub"></div></div>
+      <div class="glass r-rank"><b id="e-rank"></b><span class="r-bar"><i id="e-rank-bar"></i></span><small id="e-rank-next"></small></div>
+      <div class="glass r-why" id="e-why">
+        <div class="r-mini" id="e-mini"><b id="e-mini-t"></b><span id="e-mini-s"></span></div>
+        <p><b id="e-why-t"></b> <span id="e-why-p"></span></p>
       </div>
-      <div class="glass rankcard">
-        <div><span>Your rank</span><b id="e-rank"></b><small id="e-rank-next"></small></div>
-        <p class="extra" id="e-extra"></p>
+      <div class="r-h">Earned this close</div>
+      <div class="r-earn">
+        <button type="button" class="r-tile card" id="e-tile-card"><span class="badge" id="e-tile-card-b"></span><span class="k" id="e-tile-card-k">AI card</span><b id="e-tile-card-t"></b><small>Tap to read ›</small></button>
+        <button type="button" class="r-tile quiz" id="e-tile-quiz"><span class="badge" id="e-tile-quiz-b"></span><span class="k" id="e-tile-quiz-k">Bonus</span><b id="e-tile-quiz-t">1 quick question</b><small id="e-tile-quiz-s">True or false ›</small></button>
       </div>
-      <button type="button" class="glass deckstrip" id="e-deck">
-        <span class="ds-l">🃏 AI deck</span><span class="bar"><i id="e-deck-bar"></i></span><b id="e-deck-n">0/39</b><span class="ds-go">›</span>
-      </button>
-      <div class="ranks" id="e-ranks"></div>
+      <div class="r-ranks" id="e-ranks"></div>
       <p class="status" id="e-status"></p>
-      <div class="end-actions">
-        <button class="btn primary" id="again-top" type="button"><span>Play again</span></button>
-        <button class="btn ghost" id="share" type="button">Share result</button>
-      </div>
-      <p class="status" id="e-share-status" role="status"></p>
 
       <div class="glass message">
+        <div class="breakdown" id="e-breakdown"></div>
         <p class="lede" id="e-lede"></p>
+        <p class="extra" id="e-extra"></p>
         <div class="tbc" id="e-tbc">To be continued<span class="cursor"></span></div>
         <p class="muted" id="e-season"></p>
       </div>
 
-      <section class="glass board-box" aria-labelledby="lb-e">
+      <section class="glass board-box" id="e-board" aria-labelledby="lb-e">
         <div class="board-head"><h2 id="lb-e">Leaderboard</h2></div>
         <div class="tabs" role="tablist" data-board="end">
           <button type="button" role="tab" data-cat="score">🏆 Score</button>
@@ -198,11 +163,40 @@
         <p class="cat-desc" id="end-cat-desc"></p>
         <ol class="board" id="board-end"></ol>
       </section>
-
-      <button class="btn primary" id="again" type="button"><span>Play again</span></button>
-      <button class="btn ghost" id="home" type="button">Home</button>
+    </div>
+    <div class="r-dock">
+      <div class="in">
+        <p class="r-toast" id="e-share-status" role="status"></p>
+        <button class="r-play" id="again-top" type="button"><span class="ic" aria-hidden="true">▶</span><span><b>Play again</b><small id="e-play-sub"></small></span></button>
+        <div class="r-sec"><button type="button" id="share">⤴ Share</button><button type="button" id="e-board-go">🏆 Board</button><button type="button" id="home">⌂ Home</button></div>
+      </div>
     </div>
   </section>
+
+  <!-- the AI card and the bonus question, sliding up over the result -->
+  <div class="r-sheetwrap" id="e-sheet" hidden>
+    <div class="r-dim" id="e-sheet-dim"></div>
+    <div class="r-sheet" role="dialog" aria-modal="true" aria-labelledby="sh-card-t">
+      <div class="in">
+        <button class="r-handle" id="e-sheet-x" type="button" aria-label="Close"></button>
+        <div class="r-ai">
+          <div class="top"><span id="sh-card-k"></span><span id="sh-card-n"></span></div>
+          <h3 id="sh-card-t"></h3>
+          <p id="sh-card-plain"></p>
+          <p class="fin"><b>In finance operations</b><span id="sh-card-fin"></span></p>
+        </div>
+        <div class="r-lesson"><span>Lesson from this close</span><b id="sh-lesson-t"></b> <span id="sh-lesson-p"></span></div>
+        <div class="r-quiz" id="sh-quiz">
+          <div class="r-qh"><span id="sh-q-k"></span><span class="muted">no timer</span></div>
+          <p class="r-q" id="sh-q"></p>
+          <div class="r-tf" id="sh-ans"><button type="button" data-a="true">True</button><button type="button" data-a="false">False</button></div>
+          <div class="r-qwhy" id="sh-why" hidden></div>
+        </div>
+        <button type="button" class="linkbtn" id="sh-deck">See your AI deck ›</button>
+        <button class="r-play sm" id="sh-play" type="button"><span class="ic" aria-hidden="true">▶</span><span><b>Play again</b><small id="sh-play-sub"></small></span></button>
+      </div>
+    </div>
+  </div>
 
   <button id="snd" class="icon-btn" type="button" aria-pressed="true" aria-label="Music and sound">♪</button>
   <button id="pause" class="icon-btn" type="button" aria-label="Pause" hidden>❚❚</button>
@@ -244,7 +238,7 @@
     f.textContent = 'Something went wrong (' + (e.message || 'script error') + '). Please reload the page with Ctrl+F5 / Cmd+Shift+R, or try another browser.';
   });
 </script>
-<script src="content.js?v=3.10.0"></script>
-<script src="game.js?v=3.10.0"></script>
+<script src="content.js?v=3.11.0"></script>
+<script src="game.js?v=3.11.0"></script>
 </body>
 </html>

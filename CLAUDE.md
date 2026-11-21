@@ -5,6 +5,9 @@ Browser game for a Finance Operations team (~125 people), handed out before Chri
 ## Message the game must carry
 Volume keeps growing; you cannot scale it with people. ESSA (eliminate, simplify, standardize, automate) is the foundation to fix processes; AI is the extra enabler on top. Goal: people become AI-native and upskilled in using AI in daily work, so the team can handle more volume.
 
+## Status (v3.11)
+Owner: the screens after a close were busy and Play again was not inviting. The debrief screen is gone; finish() -> showEnd() shows one result screen: chip (`#e-chip`, red/green), big score + "your best", rank bar, why-box (mini card of the missed entry + `CONTENT.outcome[key]` fact and tip), "Earned this close" tiles (`#e-tile-card`, `#e-tile-quiz`) that open a bottom sheet (`#e-sheet`, ids `sh-*`: AI card, lesson, bonus question), rank pills, then story + leaderboard below the fold. Fixed dock `.r-dock`: Play again (`#again-top`, sub line "X points to beat your best") + Share / Board / Home. The run is submitted once at the end screen; a right answer later adds +150 and resubmits (submitRun waits for the 5 s window). Don't reuse `s-*` ids for non-screens (`s-play` is the play screen).
+
 ## Status (v3.10)
 Optional "How to play" animation (`HOW` in game.js, overlay `#howbox`, button `#how-go` on home under the start form): 7 scripted scenes (~48 s, auto-advance, story-style progress segments, Back/Next, arrows, Esc) drawn on `#how-cv` with the real card sprites (`sprite()`), a finger with tap ripples, the close line, boosters, streak/spike banners and a mini debrief + leaderboard. Last button "Got it · let's play" closes and focuses the name field. `CTB.how` exposes show/hide/state for tests.
 

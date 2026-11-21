@@ -61,6 +61,17 @@ window.CTB_CONTENT = {
     {when:'P',       title:'Agents still need sign-off', text:'AI can chase approvers and prepare the posting, but sign-off stays with the right person. Speed comes from fewer handovers, not from skipping controls.', card:32},
     {when:'flawless',title:'Now imagine three times the volume', text:'You kept up by hand and with ESSA. At three times the volume, that stops working. In January you will see how AI takes the routine so you can focus on what matters.', card:31}
   ],
+  // result screen: what happened, plus one practical tip for the next game (keep each line short)
+  outcome: {
+    dup:      {fact:'A duplicate got posted.', tip:'Duplicates have a red dashed edge and ✕. Let them pass: +10 each.'},
+    noboost:  {fact:'One entry slipped past the line.', tip:'You did it all by hand. Tap Eliminate when it is charged: it clears ~45%.'},
+    R:        {fact:'One entry slipped past the line.', tip:'Routine entries pile up fast. Automate lets a bot post them for you.'},
+    C:        {fact:'A complex deal slipped past the line.', tip:'Complex deals need 3 taps. Simplify makes them 1 tap.'},
+    IC:       {fact:'An intercompany entry slipped past.', tip:'Intercompany needs 2 taps. Start while it is still high on screen.'},
+    U:        {fact:'An urgent entry slipped past the line.', tip:'Urgent entries fall 1.6× faster. Tap them first.'},
+    P:        {fact:'An approval slipped past the line.', tip:'Approvals unlock halfway down. Tap as soon as they say Approved.'},
+    flawless: {fact:'Every entry posted, first time right.', tip:'Push the score: longer streaks and clutch saves pay extra.'}
+  },
   // bonus quiz: 3 statements a round, at most one per theme
   quiz: [
     {id:1,  theme:'Basics', q:'A token is exactly one word.', a:false, why:'About three quarters of a word on average; long or rare words take several tokens.'},

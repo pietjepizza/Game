@@ -30,7 +30,7 @@ The start screen has a "How it works" panel explaining every booster and entry t
 
 Texts live in `content.js` (English; edit there, no code changes needed).
 
-- **Debrief** (between the close and the score, based on research into learning games: feedback right after the mistake, retrieval practice, spaced repetition): one line on what happened and why, a new AI card that flips open, and one true/false check about that card (+150 points, no timer). Statements you get wrong come back two closes later as a "second chance". "Skip to my score" is always there.
+- **Result screen** (one screen after every close, Play again always in reach): a red or green label with what happened, your score and personal best, a rank bar, one line on why the close failed with a tip for the next game, and two tiles under "Earned this close": the new **AI card** and a **bonus question** (+150, true/false, no timer). Tapping a tile slides up a panel with the card, the lesson from this close and the question. Statements you get wrong come back two closes later as a "second chance". A big **Play again** button stays fixed at the bottom with "X points to beat your best"; Share, Board and Home sit under it.
 - **AI deck**: 39 cards in four parts (AI basics, working with AI, security, AI in the close), each with a plain explanation and a finance-operations example. You get the card that matches your mistake first, then the fixed first four (LLM, approved tools only, hallucination, information classification), then random new ones. The home screen shows progress per part; the end screen shows a compact deck bar. Saved in the browser.
 - **AI IQ**: every right check adds one; it has its own leaderboard tab.
 
