@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=3.7.0">
+<link rel="stylesheet" href="style.css?v=3.8.0">
 </head>
 <body>
 <canvas id="world" aria-hidden="true"></canvas>
@@ -50,6 +50,8 @@
         <p class="fine">Tap every entry before it hits the close line. You can’t tell which one is material, so you can’t miss any. Sound on.</p>
       </form>
 
+      <button type="button" class="btn ghost deck-btn rv" style="--d:2.25s" id="home-deck">🃏 Your AI deck · <span id="home-deck-n">0/39</span></button>
+
       <section class="glass howto rv" style="--d:2.3s" aria-labelledby="ht-h">
         <h2 id="ht-h">How it works</h2>
         <p class="rule"><b>First time right.</b> Miss one entry, or post a duplicate, and the close fails. Survive all 90 seconds for a 50% flawless bonus. Entries are worth more as the clock runs.</p>
@@ -59,6 +61,7 @@
           <li><b>Streak</b> Post by hand without a pause of more than 1.6 seconds. 10 in a row gives ×1.2, 25 gives ×1.5, 50 gives ×2.</li>
           <li><b>Clutch save</b> Post an entry just above the close line for +50% on that entry.</li>
           <li><b>Month-end spikes</b> Twice per close, extra volume hits for 6 seconds, with a 3-second warning. Survive a spike for a bonus.</li>
+          <li><b>AI deck and bonus quiz</b> Every close earns an AI card for your deck: AI basics, working with Copilot, security and AI in the close. After the close, an optional three-question AI quiz adds +150 points per right answer and builds your AI IQ.</li>
           <li><b>Rank</b> Your score earns a rank, from Intern to CFO. Beat your personal best and share your result with colleagues.</li>
         </ul>
 
@@ -92,6 +95,7 @@
         <div class="tabs" role="tablist" data-board="home">
           <button type="button" role="tab" data-cat="score">🏆 Score</button>
           <button type="button" role="tab" data-cat="entries">📒 Entries</button>
+          <button type="button" role="tab" data-cat="aiiq">🧠 AI IQ</button>
         </div>
         <p class="cat-desc" id="home-cat-desc"></p>
         <ol class="board" id="board-home"></ol>
@@ -139,9 +143,22 @@
       </div>
       <p class="status" id="e-share-status" role="status"></p>
 
-      <div class="glass tipcard">
-        <div class="eyebrow">AI tip for Monday morning</div>
-        <p id="e-tip"></p>
+      <button class="btn quiz-btn" id="quiz-go" type="button"><span id="quiz-go-t">Bonus: AI quiz · +150 per right answer</span></button>
+
+      <div class="glass lesson">
+        <div class="eyebrow">Lesson from this close</div>
+        <h3 id="e-lesson-t"></h3>
+        <p id="e-lesson-p"></p>
+        <button type="button" class="linkbtn" id="e-lesson-card"></button>
+      </div>
+
+      <div class="glass aicard" id="e-card">
+        <div class="eyebrow" id="e-card-eyebrow"></div>
+        <span class="part" id="e-card-part"></span>
+        <h3 id="e-card-t"></h3>
+        <p class="plain" id="e-card-plain"></p>
+        <p class="fin"><b>In finance operations</b> <span id="e-card-fin"></span></p>
+        <button type="button" class="linkbtn" id="e-deck">See your AI deck ›</button>
       </div>
 
       <div class="glass message">
@@ -155,6 +172,7 @@
         <div class="tabs" role="tablist" data-board="end">
           <button type="button" role="tab" data-cat="score">🏆 Score</button>
           <button type="button" role="tab" data-cat="entries">📒 Entries</button>
+          <button type="button" role="tab" data-cat="aiiq">🧠 AI IQ</button>
         </div>
         <p class="cat-desc" id="end-cat-desc"></p>
         <ol class="board" id="board-end"></ol>
@@ -167,6 +185,30 @@
 
   <button id="snd" class="icon-btn" type="button" aria-pressed="true" aria-label="Music and sound">♪</button>
   <button id="pause" class="icon-btn" type="button" aria-label="Pause" hidden>❚❚</button>
+
+  <div class="pausebox deckbox" id="deckbox" hidden>
+    <div class="glass">
+      <div class="deck-head"><h2>Your AI deck</h2><span id="deck-count"></span></div>
+      <p class="muted small">Every close earns one card. Tap a card to read it.</p>
+      <div class="deck-grid" id="deck-grid"></div>
+      <div class="deck-detail" id="deck-detail" hidden></div>
+      <button class="btn ghost" id="deck-close" type="button">Close</button>
+    </div>
+  </div>
+
+  <div class="pausebox quizbox" id="quizbox" hidden>
+    <div class="glass">
+      <div class="quiz-head"><span class="eyebrow" id="quiz-theme"></span><span class="dots" id="quiz-dots"></span></div>
+      <div class="quiz-time"><i id="quiz-time"></i></div>
+      <p class="quiz-q" id="quiz-q"></p>
+      <div class="quiz-ans" id="quiz-ans">
+        <button class="btn ghost" type="button" data-a="true">True</button>
+        <button class="btn ghost" type="button" data-a="false">False</button>
+      </div>
+      <div class="quiz-why" id="quiz-why" hidden></div>
+      <button class="btn primary" id="quiz-next" type="button" hidden><span>Next</span></button>
+    </div>
+  </div>
 
   <div class="pausebox" id="pausebox" hidden>
     <div class="glass">
@@ -186,6 +228,7 @@
     f.textContent = 'Something went wrong (' + (e.message || 'script error') + '). Please reload the page with Ctrl+F5 / Cmd+Shift+R, or try another browser.';
   });
 </script>
-<script src="game.js?v=3.7.0"></script>
+<script src="content.js?v=3.8.0"></script>
+<script src="game.js?v=3.8.0"></script>
 </body>
 </html>

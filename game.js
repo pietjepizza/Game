@@ -8,7 +8,7 @@
   const CFG = {
     url: 'https://evdtpvbacpibeasrczhu.supabase.co',
     key: 'sb_publishable_Y1GmwdTaooG8yqFTTTZApQ_WVwIwyZz',
-    version: '3.7.0',
+    version: '3.8.0',
     dur: 90
   };
   const $ = id => document.getElementById(id);
@@ -55,7 +55,8 @@
   };
   const CATS = {
     score:   {metric:'score',  desc:'Highest score in one 90-second close. Only your best game counts.', show:v => fmt(v)},
-    entries: {metric:'posted', desc:'Most entries posted in one game: by hand, by automation and by AI.', show:v => fmt(v)}
+    entries: {metric:'posted', desc:'Most entries posted in one game: by hand, by automation and by AI.', show:v => fmt(v)},
+    aiiq:    {metric:'ai_iq',  desc:'AI IQ: right answers in the bonus AI quiz, in total. Take the quiz after a close to grow it.', show:v => fmt(v) + ' right'}
   };
 
   /* ================= audio ================= */
@@ -393,18 +394,6 @@
     auto: {name:'Automate',    charge:.09,  dur:8, short:'bot posts',        hint:'AUTOMATE · bot posts routine'},
     ai:   {name:'AI',          charge:.06,  dur:6, short:'posts everything', hint:'AI · posts everything'}
   };
-  const TIPS = [
-    'Ask your AI assistant to explain a variance in three bullets (volume, price, one-offs) and to say what it is unsure about.',
-    'Paste a long email thread and ask: "What is being asked of me, by when, and what is still open?"',
-    'Let AI draft the reminder to business controllers: give it the audience, the deadline and the list of what is missing.',
-    'Ask AI to turn your close checklist into a table with owner, due day and status. Then check it, don’t just trust it.',
-    'Before you post an AI suggestion, ask it to show its calculation and the source it used.',
-    'Use AI to summarise a contract for revenue recognition: obligations, payment terms, acceptance clauses, with clause numbers.',
-    'Give AI an example of a good commentary and ask it to write this month’s in the same style. Context beats clever prompts.',
-    'Only put confidential or personal data into the AI tools your company has approved.',
-    'Ask AI: "Which of these 20 reconciling items look unusual compared with last month, and why?"',
-    'Stuck on an Excel formula? Describe what you want in plain words and ask AI for the formula and an explanation.'
-  ];
 
   // streak: post by hand within STREAK_GAP seconds of the previous post to keep it going
   const STREAK_GAP = 1.6, STREAK_STEPS = [[50, 2], [25, 1.5], [10, 1.2]];
@@ -1099,7 +1088,7 @@
   }
   function el(tag, cls, html){ const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   function goHome(){
-    G = null; $('pause').hidden = true; show('s-home'); setScene(.5, .9, 1, .55); AU.mood(700, .75); V.aiGlow = 0; loadBoard('home');
+    G = null; $('pause').hidden = true; show('s-home'); renderDeckCount(); setScene(.5, .9, 1, .55); AU.mood(700, .75); V.aiGlow = 0; loadBoard('home');
   }
 
   /* ================= end & leaderboard ================= */
@@ -1111,6 +1100,8 @@
     const run = {p_player:PLAYER, p_name:G.name, p_mode:modeFor(), p_score:Math.round(G.score), p_version:CFG.version,
       p_stats:{duration_ms:playedMs, posted, manual:s.manual, bot:s.bot, ai:s.ai, eliminated:s.elim, missed:s.missed, dup_rejected:s.dupRej, dup_posted:s.dupPosted || 0, flawless:flawless ? 1 : 0, bonus, powers:s.powers, preview:G.aiPreviewUsed ? 1 : 0,
         best_streak:s.bestStreak, clutch:s.clutch, spikes:s.spikes}};
+    const iq = store.get('aiiq', 0); if (iq > 0) run.p_stats.ai_iq = iq;
+    G.run = run; G.quiz = null;
     const newPB = run.p_score > G.pb; if (newPB) store.set(pbKey(), run.p_score);
     const rank = rankFor(run.p_score);
     AU.sfx('end'); AU.mood(3200, .7); setScene(.7, 1, 1, .8);
@@ -1127,9 +1118,10 @@
     [[s.manual, 'by hand'], [s.bot + s.elim, 'by automation & eliminate'], [s.ai, 'by AI']].forEach(([v, l]) => {
       const d = el('div'); d.append(el('b', '', fmt(v)), el('span', '', l)); bd.appendChild(d); });
     const rk = $('e-ranks'); rk.textContent = '';
-    [['score', '🏆 Score', fmt(run.p_score)], ['entries', '📒 Entries', fmt(posted) + ' posted']].forEach(([c, t, v]) => {
+    [['score', '🏆 Score', fmt(run.p_score)], ['entries', '📒 Entries', fmt(posted) + ' posted'], ['aiiq', '🧠 AI IQ', fmt(iq) + ' right']].forEach(([c, t, v]) => {
       const d = el('div'); d.dataset.cat = c; d.append(el('small', '', t), el('b', '', '–'), el('span', '', v)); rk.appendChild(d); });
-    $('e-tip').textContent = pick(TIPS);
+    showLesson(); showNewCard();
+    $('quiz-go').disabled = false; $('quiz-go-t').textContent = 'Bonus: AI quiz · +' + CONTENT.quizPoints + ' per right answer';
     const missedTxt = G.failed ? labelFor(G.failed.it) + ' \u00b7 ' + G.failed.it.sub : '';
     const head = flawless
       ? 'You closed <b>' + fmt(posted) + '</b> entries in 90 seconds without missing a single one: <b>+' + fmt(bonus) + '</b> flawless bonus. '
@@ -1146,6 +1138,123 @@
     show('s-end'); countUp($('e-score'), run.p_score);
     submitRun(run);
   }
+  /* ---------- AI learning: lesson, AI deck, bonus quiz (texts in content.js) ---------- */
+  const CONTENT = window.CTB_CONTENT;
+  const cardById = id => CONTENT.cards.find(c => c.id === id);
+  const deck = () => store.get('deck', []).filter(id => cardById(id));
+  function renderDeckCount(){ $('home-deck-n').textContent = deck().length + '/' + CONTENT.cards.length; }
+  function showLesson(){
+    const f = G.failed, key = f && f.why === 'dup' ? 'dup' : f && !G.st.powers ? 'noboost' : f ? f.it.k : 'flawless';
+    const L = CONTENT.lessons.find(l => l.when === key) || CONTENT.lessons.find(l => l.when === 'flawless');
+    const c = cardById(L.card);
+    $('e-lesson-t').textContent = L.title; $('e-lesson-p').textContent = L.text;
+    $('e-lesson-card').textContent = 'Read the card: ' + c.title + ' ›'; $('e-lesson-card').onclick = () => openDeck(c.id);
+  }
+  // every close earns a card: the first four in a fixed order (basics and security first), then random ones not yet owned
+  function showNewCard(){
+    const d = deck(), first = CONTENT.firstCards.find(id => !d.includes(id));
+    const rest = CONTENT.cards.filter(c => !d.includes(c.id));
+    const id = first != null ? first : rest.length ? pick(rest).id : pick(CONTENT.cards).id, isNew = !d.includes(id);
+    if (isNew){ d.push(id); store.set('deck', d); }
+    const c = cardById(id);
+    $('e-card-eyebrow').textContent = (isNew ? 'New AI card' : 'Deck complete · AI card') + ' · ' + d.length + '/' + CONTENT.cards.length;
+    $('e-card-part').textContent = c.part; $('e-card-t').textContent = c.title;
+    $('e-card-plain').textContent = c.plain; $('e-card-fin').textContent = c.finance;
+    renderDeckCount();
+  }
+  function openDeck(focusId){
+    const d = deck(), grid = $('deck-grid'); grid.textContent = '';
+    $('deck-count').textContent = d.length + '/' + CONTENT.cards.length;
+    CONTENT.cards.forEach(c => {
+      const owned = d.includes(c.id), b = el('button', owned ? '' : 'locked'); b.type = 'button';
+      b.append(el('small', '', c.part), el('b', '', owned ? c.title : '? Not collected yet'));
+      b.addEventListener('click', () => showCard(c.id, owned)); grid.appendChild(b);
+    });
+    $('deck-detail').hidden = true; $('deckbox').hidden = false;
+    if (focusId != null) showCard(focusId, d.includes(focusId), true);
+  }
+  function showCard(id, owned, readable){
+    const c = cardById(id), box = $('deck-detail'); box.textContent = '';
+    if (!owned && !readable){ box.append(el('p', 'note', 'Not in your deck yet. Every close earns a new card.')); box.hidden = false; return; }
+    box.append(el('span', 'part', c.part), el('h3', '', c.title), el('p', '', c.plain));
+    const fin = el('p', 'fin'); fin.append(el('b', '', 'In finance operations')); fin.append(document.createTextNode(c.finance)); box.append(fin);
+    if (!owned) box.append(el('p', 'note', 'Not in your deck yet: you can read it now, and it can still be collected.'));
+    box.hidden = false; box.scrollIntoView({block:'nearest'});
+  }
+  $('home-deck').addEventListener('click', () => openDeck());
+  $('e-deck').addEventListener('click', () => openDeck());
+  $('deck-close').addEventListener('click', () => { $('deckbox').hidden = true; });
+
+  // bonus quiz: three statements, at most one per theme, 20 seconds of thinking time in total
+  const QUIZ_TIME = 20;
+  let QZ = null;
+  function startQuiz(){
+    if (!G || G.quiz || G.playing) return;
+    const byTheme = {}; CONTENT.quiz.forEach(q => (byTheme[q.theme] = byTheme[q.theme] || []).push(q));
+    const themes = Object.keys(byTheme).sort(() => Math.random() - .5).slice(0, 3);
+    QZ = {items:themes.map(t => pick(byTheme[t])), i:0, right:0, left:QUIZ_TIME, waiting:true, last:performance.now()};
+    G.quiz = QZ; $('quiz-go').disabled = true;
+    $('quizbox').hidden = false; quizShow(); requestAnimationFrame(quizTick);
+  }
+  function quizShow(){
+    const q = QZ.items[QZ.i];
+    $('quiz-theme').textContent = q.theme + ' · ' + (QZ.i + 1) + ' of 3';
+    $('quiz-dots').textContent = QZ.items.map((_, j) => j < QZ.i ? '●' : j === QZ.i ? '◉' : '○').join(' ');
+    $('quiz-q').textContent = q.q; $('quiz-why').hidden = true; $('quiz-next').hidden = true;
+    document.querySelectorAll('#quiz-ans .btn').forEach(b => { b.disabled = false; b.classList.remove('right', 'wrong'); });
+    QZ.waiting = true; QZ.last = performance.now();
+  }
+  function quizTick(now){
+    if (!QZ || QZ.done) return;
+    if (QZ.waiting){ QZ.left -= (now - QZ.last) / 1000; if (QZ.left <= 0){ QZ.left = 0; quizAnswer(null); } }
+    QZ.last = now; $('quiz-time').style.transform = 'scaleX(' + clamp(QZ.left / QUIZ_TIME, 0, 1) + ')';
+    requestAnimationFrame(quizTick);
+  }
+  function quizAnswer(a){
+    if (!QZ || !QZ.waiting) return;
+    QZ.waiting = false;
+    const q = QZ.items[QZ.i], ok = a === q.a;
+    if (ok){ QZ.right++; AU.sfx('ready'); } else AU.sfx('lock');
+    document.querySelectorAll('#quiz-ans .btn').forEach(b => { b.disabled = true; const v = b.dataset.a === 'true';
+      if (v === q.a) b.classList.add('right'); else if (a !== null && v === a) b.classList.add('wrong'); });
+    const w = $('quiz-why'); w.textContent = '';
+    w.append(el('b', '', a === null ? 'Time is up. ' : ok ? 'Right. ' : 'Not quite. '), document.createTextNode((q.a ? 'True: ' : 'False: ') + q.why));
+    w.hidden = false;
+    // out of time: the remaining statements count as unanswered
+    const last = QZ.i === 2 || QZ.left <= 0;
+    $('quiz-next').hidden = false; $('quiz-next').querySelector('span').textContent = last ? 'See my bonus' : 'Next';
+  }
+  function quizNext(){
+    if (!QZ) return;
+    if (QZ.i < 2 && QZ.left > 0){ QZ.i++; quizShow(); return; }
+    quizFinish();
+  }
+  function quizFinish(){
+    QZ.done = true; $('quizbox').hidden = true;
+    const right = QZ.right, bonus = right * CONTENT.quizPoints, iq = store.get('aiiq', 0) + right;
+    store.set('aiiq', iq);
+    $('quiz-go-t').textContent = 'AI quiz: ' + right + ' of 3 right · +' + fmt(bonus) + ' points';
+    const run = JSON.parse(JSON.stringify(G.run));
+    run.p_score += bonus; run.p_stats.quiz_right = right; if (iq > 0) run.p_stats.ai_iq = iq;
+    G.run = run; G.score = run.p_score;
+    countUp($('e-score'), run.p_score);
+    const box = document.querySelector('#e-ranks [data-cat="aiiq"] span'); if (box) box.textContent = fmt(iq) + ' right';
+    if (run.p_score > store.get(pbKey(), 0)) store.set(pbKey(), run.p_score);
+    const posted = run.p_stats.posted, flawless = !G.failed;
+    G.share = shareText(run.p_score, posted, rankFor(run.p_score), flawless);
+    const rk2 = rankFor(run.p_score); $('e-rank').textContent = rk2.name + (flawless ? ' ★' : '');
+    $('e-rank-next').textContent = rk2.next ? fmt(rk2.need) + ' points to ' + rk2.next : 'Top rank. The books are in safe hands.';
+    const lines = G.share.split('\n'); lines.splice(lines.length - 1, 0, '🧠 AI quiz ' + right + '/3 right'); G.share = lines.join('\n');
+    if (bonus > 0) AU.sfx('pb');
+    submitRun(run);
+  }
+  $('quiz-go').addEventListener('click', startQuiz);
+  $('quiz-next').addEventListener('click', quizNext);
+  document.querySelectorAll('#quiz-ans .btn').forEach(b => b.addEventListener('click', () => quizAnswer(b.dataset.a === 'true')));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !$('deckbox').hidden) $('deckbox').hidden = true;
+  });
+
   // spoiler-free summary for Teams/WhatsApp: a 10-block timeline of the 90 seconds
   function shareText(score, posted, rank, flawless){
     const blocks = [];
@@ -1179,8 +1288,11 @@
     const step = now => { const k = Math.min(1, (now - t0) / d), e = 1 - Math.pow(1 - k, 3); node.textContent = fmt(to * e); if (k < 1) requestAnimationFrame(step); };
     requestAnimationFrame(step);
   }
+  let lastSubmitAt = 0;
   async function submitRun(run){
     const st = $('e-status'); st.textContent = 'Saving your score…';
+    const wait = lastSubmitAt + 5600 - Date.now(); if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    lastSubmitAt = Date.now();
     try {
       const r = await api.submit(run);
       if (r && r.ok) st.textContent = TEST || PREVIEW_S2 ? 'Test game saved (not on the real leaderboard).' : 'Score saved on the leaderboard.';
@@ -1262,7 +1374,7 @@
   resize(); setScene(.5, .9, 1, .55); V.cur = {...V.tgt};
   if (reduced || SKIP_INTRO){ V.beam = 1; INTRO.done = true; show('s-home'); }
   else { V.beam = 0; V.light = 0; V.cur = {y:.5, r:.55, a:.18, i:.2}; setScene(.5, .55, .18, .2); show('s-intro'); }
-  applySeason();
+  applySeason(); renderDeckCount();
   last = performance.now(); requestAnimationFrame(frame);
   loadBoard('home'); loadSeason(); flushPending();
   window.CTB = {state:() => G, view:V, usePower, layout:() => ({...L})};

@@ -1,6 +1,6 @@
 # Close the Books
 
-A browser game for the Finance Operations team. Volume grows, the team doesn't. One 90-second close, **first time right**: tap every entry before it hits the period-end close line. Miss a single entry and the close fails, because you can't tell which entry is material. Finish all 90 seconds for a 50% flawless bonus. Seven kinds of entries appear one by one (journal entry, complex deal, intercompany, urgent, awaiting approval, duplicate, AI-ready), each explained on screen the first time. Posting a duplicate also fails the close. Use the four **ESSA power buttons** (Eliminate, Simplify, Standardize, Automate) once they are charged. The **AI button is locked until January**; each game offers one 3-second AI preview, AI-ready entries fall past with a lock, and the end screen gives a practical AI tip.
+A browser game for the Finance Operations team. Volume grows, the team doesn't. One 90-second close, **first time right**: tap every entry before it hits the period-end close line. Miss a single entry and the close fails, because you can't tell which entry is material. Finish all 90 seconds for a 50% flawless bonus. Seven kinds of entries appear one by one (journal entry, complex deal, intercompany, urgent, awaiting approval, duplicate, AI-ready), each explained on screen the first time. Posting a duplicate also fails the close. Use the four **ESSA power buttons** (Eliminate, Simplify, Standardize, Automate) once they are charged. The **AI button is locked until January**; each game offers one 3-second AI preview, AI-ready entries fall past with a lock, and the end screen teaches something about AI (see below).
 
 **Play:** https://pietjepizza.github.io/Game/ (works on phone and desktop, no install).
 
@@ -22,12 +22,23 @@ Mechanics borrowed from popular games (mechanics only, no names or looks): a **s
 
 The start screen has a "How it works" panel explaining every booster and entry type; the same booster explanation shows in the pause screen, each booster button shows its effect, and the first time a booster is charged the game says what it does.
 
+## Learning about AI
+
+Texts live in `content.js` (English; edit there, no code changes needed).
+
+- **AI deck**: every close earns an AI card (39 cards in four parts: AI basics, working with AI, security, AI in the close). Each card has a plain explanation and a finance-operations example. The first four are fixed (LLM, approved tools only, hallucination, information classification), then random cards not yet collected. The deck is on the home screen and the end screen and is saved in the browser.
+- **Lesson from this close**: the end screen explains the mistake that ended the close (duplicate posted, no boosters used, or the kind of entry missed) or, after a flawless close, what made it work, with a link to the matching card.
+- **Bonus AI quiz**: optional, after each close. Three true/false statements from three different themes, 20 seconds in total, +150 points per right answer, with a short explanation after each answer. Right answers add up to your **AI IQ**.
+
+Security themes in the content: use only approved tools (Copilot and other approved tools), respect the information classification (Non-business, Public, Confidential, Company secret, Top secret), and ask your manager when unsure.
+
 ## Leaderboard
 
-Shared online leaderboard with names and two prize categories:
+Shared online leaderboard with names and three categories:
 
 - 🏆 **Score**: highest score in one game.
 - 📒 **Entries**: most entries posted in one game (by hand, automation and AI).
+- 🧠 **AI IQ**: right answers in the bonus AI quiz, in total over all games.
 
 Only each player's best result per category counts. The season closes on the date in the `settings` table (default 31 January 2027).
 
@@ -50,6 +61,7 @@ The backend is a Supabase project (EU, Frankfurt). The website uses the public p
 -- Season 1 winners: top 10 per category
 select * from leaderboard('s1', 'score', false, 10);
 select * from leaderboard('s1', 'posted', false, 10);
+select * from leaderboard('s1', 'ai_iq', false, 10);
 
 -- Close the season now / move the closing date
 update settings set value = '2027-01-15T23:59:00+01:00' where key = 'season_end';
@@ -66,6 +78,7 @@ Add `?test` to the URL (`https://pietjepizza.github.io/Game/?test`). Test games 
 
 - `index.html`: screens and layout
 - `style.css`: styling
+- `content.js`: AI cards, lessons and quiz statements
 - `game.js`: game, visuals, sound and leaderboard client (no dependencies, no build step)
 - `assets/drama.mp3`: music, "Drama" by Holizna (CC0, via OpenGameArt.org)
 - `supabase/setup.sql`: database setup
