@@ -11,7 +11,7 @@ The game opens on a dark gate ("Tap to begin", which also unlocks sound), follow
 1. **The close**: an endless ledger wall of journal entries scrolls faster while the camera pulls back and more lines turn red (unmatched). Three beats: "Every month." "More volume." "Same team.", with VOLUME ×1.0→×3.0 against TEAM ×1.0.
 2. **Match cut**: the ledger collapses into the wafer's die grid.
 3. **EUV light, as it really works**: falling tin droplets, a pre-pulse that flattens a droplet, the main pulse that turns it into plasma (13.5 nm), a mirror, and the beam slamming into the wafer with a flash and shockwave.
-4. **Exposure**: the dies light up, the title is printed with a scanline, and "Manual work alone won't close this. ESSA first. Then AI." types out before the home screen appears.
+4. **Exposure**: the dies light up and "Manual work alone won't close this. ESSA first. Then AI." types out; then the home screen builds the title (it appears only once).
 
 Skip with the button or Esc; it is skipped automatically for players who prefer reduced motion, and with `?skipintro` in the URL.
 

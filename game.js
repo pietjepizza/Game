@@ -8,7 +8,7 @@
   const CFG = {
     url: 'https://evdtpvbacpibeasrczhu.supabase.co',
     key: 'sb_publishable_Y1GmwdTaooG8yqFTTTZApQ_WVwIwyZz',
-    version: '3.9.0',
+    version: '3.9.1',
     dur: 90
   };
   const $ = id => document.getElementById(id);
@@ -872,9 +872,9 @@
   //    beats "Every month. / More volume. / Same team." with VOLUME vs TEAM
   //  2 match cut: the ledger grid collapses into the wafer's die grid
   //  3 EUV as it really works: tin droplets, pre-pulse, main pulse, plasma flash (13.5 nm), mirror, beam slams into the wafer
-  //  4 exposure: dies light up, the title is printed with a scanline, tagline, letterbox out, home
+  //  4 exposure: dies light up, tagline, letterbox out, home builds the title
   const INTRO = {on:false, t:0, done:false, impact:false, fade:0, cues:{}};
-  const T = {ledger:.25, morph:2.9, euv:3.3, pre:3.45, main:3.62, mirror:3.62, slam:3.8, title:4.45, tag:5.2, out:6.2, end:6.7};
+  const T = {ledger:.25, morph:2.9, euv:3.3, pre:3.45, main:3.62, mirror:3.62, slam:3.8, title:4.45, tag:4.6, out:6.2, end:6.7};
   const easeOut = x => 1 - Math.pow(1 - x, 3);
   const easeInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
   const easeBack = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
@@ -1014,32 +1014,10 @@
       if (t > T.main){ g.fillStyle = 'rgba(216,200,255,' + clamp((t - T.main) * 4, 0, 1) + ')'; g.fillText('13.5 nm', P.x + 16, P.y + 22); }
       g.restore();
     }
-    // ---- act 4: the title is printed with a scanline, then the tagline
+    // ---- act 4: the tagline types out; the title appears once, on the home screen
     const titleA = (t > T.title ? 1 : 0) * (1 - clamp((t - T.out) / .5, 0, 1)) * (I.on ? 1 : I.fade);
     if (titleA > 0){
-      const pk = clamp((t - T.title) / .75, 0, 1), big = Math.round(Math.min(110, W * .22)), small = Math.round(big * .45);
-      g.font = '800 ' + big + 'px "Sora", sans-serif';
-      const tw = Math.min(W - 16, g.measureText('Books').width + 40), cy = H * .2, x0 = W / 2 - tw / 2, wv = tw;   // the scan covers the title only
-      g.save(); g.globalAlpha = titleA; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.beginPath(); g.rect(x0, 0, wv * easeOut(pk), H); g.clip();
-      for (const [off, col] of [[-3, 'rgba(95,214,245,.55)'], [3, 'rgba(255,80,120,.45)']]){
-        g.globalCompositeOperation = 'lighter'; g.fillStyle = col;
-        g.font = '300 ' + small + 'px "Sora", sans-serif'; g.fillText('Close the', W / 2 + off * (1 - pk), cy - big * .55);
-        g.font = '800 ' + big + 'px "Sora", sans-serif'; g.fillText('Books', W / 2 + off * (1 - pk), cy + small * .2);
-      }
-      g.globalCompositeOperation = 'source-over';
-      const tg = g.createLinearGradient(W / 2 - big * 1.6, 0, W / 2 + big * 1.6, 0);
-      tg.addColorStop(0, '#ffffff'); tg.addColorStop(.55, '#5fd6f5'); tg.addColorStop(1, '#a78bfa');
-      g.fillStyle = tg; g.shadowColor = 'rgba(95,214,245,.6)'; g.shadowBlur = 24;
-      g.font = '300 ' + small + 'px "Sora", sans-serif'; g.fillText('Close the', W / 2, cy - big * .55);
-      g.font = '800 ' + big + 'px "Sora", sans-serif'; g.fillText('Books', W / 2, cy + small * .2);
-      g.restore();
-      if (pk < 1){ // the exposure scanline
-        const sx = x0 + wv * easeOut(pk);
-        g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = titleA;
-        const sg = g.createLinearGradient(sx - 30, 0, sx + 6, 0); sg.addColorStop(0, 'rgba(95,214,245,0)'); sg.addColorStop(1, 'rgba(220,245,255,.9)');
-        g.fillStyle = sg; g.fillRect(sx - 30, cy - big, 36, big * 1.8); g.restore();
-      }
+      // the title itself is not drawn here: the home screen builds it once, so it appears a single time
       const lines = [['Manual work alone won’t close this.', T.tag, '#ffc2cb'], ['ESSA first. Then AI.', T.tag + .55, '#9fe9ff']];
       g.save(); g.globalAlpha = titleA; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.font = '500 ' + Math.round(Math.min(19, W * .046)) + 'px "IBM Plex Sans", sans-serif';
