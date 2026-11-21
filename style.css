@@ -319,3 +319,21 @@ input::placeholder{color:#6f78a8}
 .gbanner.on{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){.gbanner{transition:none}}
 .gbanner{font-size:12.5px;line-height:1.3;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+
+/* ---------- v3.7: compact HUD, quiet one-line messages under the close line ---------- */
+.hud{display:flex;align-items:center;gap:12px;padding:7px 12px 9px;padding-right:84px;border-radius:12px;min-height:42px}
+.hud-act{flex:none}
+.hud-act span{font:700 17px var(--mono);letter-spacing:-.02em}
+.hud-stats{flex:1;min-width:0;margin:0;font:500 12px var(--mono);flex-wrap:nowrap;white-space:nowrap;overflow:hidden;gap:10px}
+.hud-score{flex:none;flex-direction:row;align-items:baseline;gap:6px}
+.hud-score b{font:700 19px var(--mono)}
+.hud-score small{min-height:0;font-size:10px}
+.hud-bar{position:absolute;left:12px;right:12px;bottom:3px;height:2px}
+/* round buttons shrink to fit inside the compact HUD while playing */
+#s-play.on ~ .icon-btn{width:32px;height:32px;top:calc(13px + env(safe-area-inset-top));font-size:13px}
+#s-play.on ~ #snd{right:16px}
+#s-play.on ~ #pause{right:54px;font-size:10px}
+/* one quiet line under the close line, never over the playfield */
+.gbanner{display:block;-webkit-line-clamp:unset;padding:3px 10px;border:0;border-radius:10px;background:rgba(6,10,34,.6);box-shadow:none;
+  font:600 11.5px/1.3 var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 24px)}
+@media (max-width:380px){.hud{gap:8px;padding-left:10px}.hud-act span{font-size:15px}.hud-score b{font-size:16px}.hud-stats{font-size:11px;gap:8px}.hud-score small{display:none}}

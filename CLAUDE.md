@@ -5,6 +5,9 @@ Browser game for a Finance Operations team (~125 people), handed out before Chri
 ## Message the game must carry
 Volume keeps growing; you cannot scale it with people. ESSA (eliminate, simplify, standardize, automate) is the foundation to fix processes; AI is the extra enabler on top. Goal: people become AI-native and upskilled in using AI in daily work, so the team can handle more volume.
 
+## Status (v3.7)
+Owner: messages were distracting and took playfield; HUD too tall. Now: compact one-row HUD (clock, streak + multiplier, score, small pause/sound buttons; time bar as a 2 px line; "Posted"/"First time right" removed from HUD), playfield starts right under it (~56 px from top). Messages are one short line (`#gbanner`) just below the close line, replacing the "PERIOD-END CLOSE" label while shown; all 29 verified to fit one line at 320 px, so keep new ones short. The first card of each new kind carries a small label (TAGS: 3 TAPS, 2 TAPS, FAST · 1 TAP, WAIT FOR APPROVED, DON'T POST, LET IT PASS), drawn above all cards. Duplicate fairness: a tap on a duplicate within 12 px of a real entry posts the real entry.
+
 ## Status (v3.6)
 Intro rebuilt as four acts (~6.7 s, timings in `T` in game.js) inside letterbox bars with a WD-1 23:58 -> WD3 17:00 close clock: 1) ledger wall (procedural journal rows, camera pull-back, rows turning red "UNMATCHED"), beats "Every month. / More volume. / Same team." + VOLUME vs TEAM; 2) match cut: ledger clipped by an ellipse that lands on the wafer; 3) EUV source: tin droplets, pre-pulse, main pulse, plasma flash labelled 13.5 nm, mirror, beam slam + shockwave; 4) title printed with a scanline + chromatic edges, tagline "Manual work alone won't close this. / ESSA first. Then AI.", letterbox out, fade into home (`INTRO.fade`).
 

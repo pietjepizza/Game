@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=3.6.0">
+<link rel="stylesheet" href="style.css?v=3.7.0">
 </head>
 <body>
 <canvas id="world" aria-hidden="true"></canvas>
@@ -102,10 +102,10 @@
   <!-- ============ PLAY ============ -->
   <section id="s-play" class="screen">
     <div class="hud glass">
-      <div class="hud-act"><b>CLOSE</b><span id="h-clock">1:30</span></div>
-      <div class="hud-score"><span>Score</span><b id="h-score">0</b><small id="h-pb"></small></div>
-      <div class="hud-bar"><i id="h-time"></i></div>
+      <div class="hud-act"><span id="h-clock">1:30</span></div>
       <div class="hud-stats" id="h-stats"></div>
+      <div class="hud-score"><b id="h-score">0</b><small id="h-pb"></small></div>
+      <div class="hud-bar"><i id="h-time"></i></div>
     </div>
     <div class="gbanner" id="gbanner" role="status" aria-live="polite"></div>
     <div class="powerbar" id="powerbar">
@@ -186,6 +186,6 @@
     f.textContent = 'Something went wrong (' + (e.message || 'script error') + '). Please reload the page with Ctrl+F5 / Cmd+Shift+R, or try another browser.';
   });
 </script>
-<script src="game.js?v=3.6.0"></script>
+<script src="game.js?v=3.7.0"></script>
 </body>
 </html>

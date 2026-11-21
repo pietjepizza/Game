@@ -8,7 +8,7 @@
   const CFG = {
     url: 'https://evdtpvbacpibeasrczhu.supabase.co',
     key: 'sb_publishable_Y1GmwdTaooG8yqFTTTZApQ_WVwIwyZz',
-    version: '3.6.0',
+    version: '3.7.0',
     dur: 90
   };
   const $ = id => document.getElementById(id);
@@ -314,19 +314,18 @@
   let CW = 176, CH = 56;
   function layout(){
     const colW = Math.min(560, W) - 16; L.x0 = (W - colW) / 2; L.x1 = L.x0 + colW;
-    L.top = 92; L.line = H - 138; measureTop();
+    L.top = 60; L.line = H - 138; measureTop();
     CW = Math.min(184, Math.floor(colW * .47)); CH = 56;
   }
   // pts: points when posted by hand; charge: how much faster it charges the boosters; from: seconds before it first appears; w: how often
   // the message strip sits right under the HUD; the playing field starts below that strip,
   // so a message is always readable and never covers an entry you must post
-  const MSG_STRIP = 58;   // room for a two-line message (the CSS caps messages at two lines)
+  // the playfield starts right below the (compact) HUD; messages sit on one line just below the close line,
+  // where no entry can be, instead of over the playfield
   function measureTop(){
+    $('gbanner').style.top = Math.round(L.line + 7) + 'px';
     const hudEl = document.querySelector('#s-play .hud'), r = hudEl && hudEl.getBoundingClientRect();
-    if (!r || !r.height) return;
-    const top = Math.round(r.bottom) + 6;
-    $('gbanner').style.top = top + 'px';
-    L.top = Math.max(92, top + MSG_STRIP);
+    if (r && r.height) L.top = Math.round(r.bottom) + 6;
   }
   const KIND = {
     R:  {label:'Journal entry',     col:'#5fd6f5', pts:10, charge:1,   from:0,  w:50, subs:['Accrual · €12,400','Reclass · €3,950','Prepayment · €8,200','Payroll · €41,000','Freight · €6,730','Rent · €18,500','Depreciation · €9,100']},
@@ -339,13 +338,15 @@
   };
   // shown once, the first time each kind appears
   const NEWS = {
-    C:  'NEW · Complex deal: needs 3 taps',
-    IC: 'NEW · Intercompany: needs 2 taps',
-    X:  'AI-ready work is locked until January. Let it pass: not a miss.',
-    U:  'NEW · Urgent: falls fast. 1 tap',
-    P:  'NEW · Awaiting approval: wait until it says Approved, then tap',
-    D:  'NEW · Duplicate?: don\u2019t post it. Let it fall past the line'
+    C:  'NEW · Complex deal: 3 taps',
+    IC: 'NEW · Intercompany: 2 taps',
+    X:  'AI-ready: let it pass, not a miss',
+    U:  'NEW · Urgent: falls fast',
+    P:  'NEW · Approval: wait, then tap',
+    D:  'NEW · Duplicate?: never post it'
   };
+  // a small label under the first card of each new kind: the explanation sits where you are looking
+  const TAGS = {C:'3 TAPS', IC:'2 TAPS', U:'FAST · 1 TAP', P:'WAIT FOR APPROVED', D:'DON\u2019T POST', X:'LET IT PASS'};
   const labelFor = it => it.k === 'P' ? (it.lock ? 'Awaiting approval' : 'Approved') : it.k === 'X' ? (aiUnlocked() ? 'AI agent' : 'AI-ready') : KIND[it.k].label;
 
   const sprites = new Map(), PAD = 22;
@@ -386,16 +387,11 @@
 
   /* ================= game ================= */
   const POWERS = {
-    elim: {name:'Eliminate',   charge:.075, dur:8, effect:'clears ~45% of the screen and slows new work by 40% for 8 s',
-           hint:'ELIMINATE · work that adds no value is gone'},
-    simp: {name:'Simplify',    charge:.11,  dur:8, effect:'complex deals and intercompany need just 1 tap for 8 s',
-           hint:'SIMPLIFY · complex deals and intercompany: 1 tap'},
-    std:  {name:'Standardize', charge:.10,  dur:8, effect:'entries line up in 3 lanes and fall 40% slower for 8 s',
-           hint:'STANDARDIZE · 3 lanes, 40% slower'},
-    auto: {name:'Automate',    charge:.09,  dur:8, effect:'a bot posts routine journal entries for you, 3 per second, for 8 s',
-           hint:'AUTOMATE · the bot posts routine journal entries'},
-    ai:   {name:'AI',          charge:.06,  dur:6, effect:'AI posts everything on screen for 6 s and rejects duplicates',
-           hint:'AI · posts everything on screen, rejects duplicates'}
+    elim: {name:'Eliminate',   charge:.075, dur:8, short:'clears ~45%',      hint:'ELIMINATE · ~45% cleared'},
+    simp: {name:'Simplify',    charge:.11,  dur:8, short:'deals 1 tap',      hint:'SIMPLIFY · deals need 1 tap'},
+    std:  {name:'Standardize', charge:.10,  dur:8, short:'lanes, slower',    hint:'STANDARDIZE · lanes, 40% slower'},
+    auto: {name:'Automate',    charge:.09,  dur:8, short:'bot posts',        hint:'AUTOMATE · bot posts routine'},
+    ai:   {name:'AI',          charge:.06,  dur:6, short:'posts everything', hint:'AI · posts everything'}
   };
   const TIPS = [
     'Ask your AI assistant to explain a variance in three bullets (volume, price, one-offs) and to say what it is unsure about.',
@@ -475,7 +471,7 @@
     const simp = G.pw.simp.active > 0;
     it.taps = k === 'C' ? (simp ? 1 : 3) : k === 'IC' ? (simp ? 1 : 2) : 1;
     it.sub = pick(KIND[k].subs);
-    if (!G.seen[k]){ G.seen[k] = 1; if (NEWS[k] && !(k === 'X' && aiUnlocked())) hint('new_' + k, NEWS[k], k === 'D' ? '#ff5d73' : k === 'X' ? '#a78bfa' : KIND[k].col, 3.4, true); }
+    if (!G.seen[k]){ G.seen[k] = 1; if (NEWS[k] && !(k === 'X' && aiUnlocked())){ hint('new_' + k, NEWS[k], k === 'D' ? '#ff5d73' : k === 'X' ? '#a78bfa' : KIND[k].col, 3, true); it.tag = TAGS[k]; } }
     if (G.t < 8 && !G.hints.tut && k === 'R') it.tut = true;
     G.items.push(it);
   }
@@ -553,7 +549,7 @@
   function aiPreview(){
     G.aiOffer = false; G.aiPreviewUsed = true; G.aiPreview = 3; V.aiGlow = 1; V.flash = .6; G.st.powers++;
     AU.sfx('ai'); AU.mood(20000, .9, .2);
-    banner('AI PREVIEW · 3 seconds of the full toolkit', '#a78bfa', 3, true);
+    banner('AI PREVIEW · 3 seconds', '#a78bfa', 3, true);
     renderPowers(true);
   }
 
@@ -561,7 +557,7 @@
     // countdown before the clock starts
     if (G.t < 0){
       const before = Math.ceil(-G.t); G.t += dt;
-      if (G.t >= 0){ AU.sfx('go'); AU.mood(2000, .78); hint('tut0', 'First time right: miss one entry and the close fails', '#5fd6f5'); hint('tut1', 'Posting charges your ESSA boosters at the bottom. Tap one when it glows.', '#4fe0a0', 3.6); }
+      if (G.t >= 0){ AU.sfx('go'); AU.mood(2000, .78); hint('tut0', 'First time right: miss one = close fails', '#5fd6f5'); hint('tut1', 'Posting charges the boosters ↓', '#4fe0a0', 3); }
       else if (Math.ceil(-G.t) !== before) AU.sfx('count');
       return;
     }
@@ -585,11 +581,11 @@
     const nextSpike = SPIKES[G.spikeI];
     if (nextSpike != null && G.spikeWarned !== G.spikeI && G.t >= nextSpike - SPIKE_WARN){
       G.spikeWarned = G.spikeI; AU.sfx('spike');
-      banner('MONTH-END SPIKE IN 3 S · extra volume incoming', '#ffb84d', SPIKE_WARN, true);
+      banner('SPIKE IN 3 S · extra volume', '#ffb84d', SPIKE_WARN, true);
     }
     if (nextSpike != null && G.spikeLeft === 0 && G.t >= nextSpike){
       G.spikeLeft = SPIKE_LEN; V.shake = Math.max(V.shake, .15);
-      banner('MONTH-END SPIKE · volume ×1.8 for 6 s', '#ffb84d', 2.4, true);
+      banner('MONTH-END SPIKE · volume ×1.8', '#ffb84d', 2.4, true);
     }
     if (G.spikeLeft > 0){
       rate *= 1.8; G.spikeLeft -= dt;
@@ -600,7 +596,7 @@
       }
     }
     if (G.streak && G.t - G.lastPost > STREAK_GAP) G.streak = 0;
-    if (!G.pbHit && G.pb > 0 && G.score > G.pb){ G.pbHit = true; AU.sfx('pb'); banner('NEW PERSONAL BEST · keep going', '#4fe0a0', 2.4, true); }
+    if (!G.pbHit && G.pb > 0 && G.score > G.pb){ G.pbHit = true; AU.sfx('pb'); banner('NEW PERSONAL BEST', '#4fe0a0', 2.4, true); }
     G.acc += rate * dt;
     while (G.acc >= 1){
       G.acc--;
@@ -615,15 +611,15 @@
       const P = G.pw[k];
       if (P.active > 0){ P.active -= dt; if (P.active <= 0){ P.active = 0; if (k === 'ai') V.aiGlow = 0; } }
       const ready = P.f >= 1 && P.active === 0 && (k !== 'ai' || aiUnlocked());
-      if (ready && !P.ready){ AU.sfx('ready'); hint('ready_' + k, POWERS[k].name + ' ready: ' + POWERS[k].effect + '. Tap it!', '#5fd6f5', 4); }
+      if (ready && !P.ready){ AU.sfx('ready'); hint('ready_' + k, POWERS[k].name + ' ready ↓ ' + POWERS[k].short, '#5fd6f5', 2.6); }
       P.ready = ready;
     }
     // the one-time AI preview offer during the busiest part of season 1
     if (!aiUnlocked() && !G.aiPreviewUsed && !G.aiOffer && ((G.t > 30 && G.items.length >= 6) || G.t > 55)){
-      G.aiOffer = true; banner('AI PREVIEW AVAILABLE · tap the AI button', '#a78bfa', 3.2, true); AU.sfx('ready');
+      G.aiOffer = true; banner('AI PREVIEW · tap AI ↓', '#a78bfa', 3.2, true); AU.sfx('ready');
     }
     // nudge when manual work alone isn't enough
-    if (G.items.filter(it => it.k !== 'X').length >= 6 && !G.st.powers && G.t > 15) hint('nudge', 'Manual alone can’t keep up. Use your ESSA powers.', '#ffb84d');
+    if (G.items.filter(it => it.k !== 'X').length >= 6 && !G.st.powers && G.t > 15) hint('nudge', 'Too busy? Use your boosters ↓', '#ffb84d');
 
     // movement
     const fallT = (5.0 - 1.6 * p) / (G.pw.std.active > 0 ? .6 : 1);   // Standardize: 40% slower
@@ -638,7 +634,7 @@
       if (it.y + CH < L.line) continue;
       G.items.splice(i, 1);
       if (it.k === 'X'){
-        hint('xpass', 'AI-ready work waits for AI in January. Not a miss.', '#a78bfa');
+        hint('xpass', 'AI-ready is not a miss · AI in January', '#a78bfa');
         if (G.t - G.xMsg > 6){ G.xMsg = G.t; G.fx.push({x:it.x + CW / 2, y:L.line - 12, txt:'AI could do this · January', col:'#a78bfa', life:1.2}); }
         burst(it.x + CW / 2, L.line, 6, '#8d98c9', false);
       } else if (it.k === 'D'){
@@ -664,7 +660,7 @@
       G.aiPreview -= dt;
       if (G.aiPreview <= 0){
         G.aiPreview = 0; V.aiGlow = 0; AU.mood(1800 + 16000 * p * p, .78, .8);
-        banner('That was 3 seconds of AI. The full toolkit unlocks in January.', '#a78bfa', 4);
+        banner('That was AI · full toolkit in January', '#a78bfa', 3.2);
         renderPowers(true);
       }
     }
@@ -696,7 +692,7 @@
     g.fillStyle = 'rgba(255,170,185,' + Math.min(1, .85 + lf * .3) + ')'; g.fillRect(0, L.line - .75, W, 1.5);
     g.restore();
     g.fillStyle = 'rgba(255,120,140,.75)'; g.font = '600 10px "IBM Plex Mono", monospace'; g.textAlign = 'center';
-    g.fillText('P E R I O D - E N D   C L O S E', W / 2, L.line + 20);
+    if (!(G.banner && !G.failed)) g.fillText('P E R I O D - E N D   C L O S E', W / 2, L.line + 20);   // a message takes this spot while shown
 
     if (G.pw.std.active > 0){
       g.save(); g.strokeStyle = 'rgba(79,224,160,.18)'; g.setLineDash([6, 8]); g.lineWidth = 1;
@@ -711,6 +707,16 @@
         rr(g, it.x - pr * 10, it.y - pr * 10, CW + pr * 20, CH + pr * 20, 14); g.stroke();
         g.fillStyle = '#5fd6f5'; g.font = '700 12px "IBM Plex Sans", sans-serif'; g.textAlign = 'center';
         g.fillText('TAP TO POST', it.x + CW / 2, it.y + CH + 18);
+      }
+    }
+    // labels under the first card of each new kind, drawn on top of all cards
+    for (const it of G.items){
+      if (it.tag){   // label under the first card of a new kind
+        g.font = '700 11px "IBM Plex Sans", sans-serif'; g.textAlign = 'center';
+        const tw = g.measureText(it.tag).width + 16, tx = it.x + CW / 2, ty = it.y + CH + 6, col = it.k === 'D' ? '#ff5d73' : it.k === 'X' ? '#a78bfa' : KIND[it.k].col;
+        g.fillStyle = 'rgba(6,10,34,.9)'; rr(g, tx - tw / 2, ty, tw, 18, 9); g.fill();
+        g.strokeStyle = col; g.lineWidth = 1; rr(g, tx - tw / 2 + .5, ty + .5, tw - 1, 17, 9); g.stroke();
+        g.fillStyle = col; g.textBaseline = 'middle'; g.fillText(it.tag, tx, ty + 9.5); g.textBaseline = 'alphabetic';
       }
     }
     g.textAlign = 'center';
@@ -762,7 +768,7 @@
     $('h-time').style.transform = 'scaleX(' + clamp(1 - Math.max(0, G.t) / CFG.dur, 0, 1) + ')';
     const s = G.st, posted = s.manual + s.bot + s.ai;
     const sm = streakMult(G.streak);
-    const html = '<span>Posted <b>' + fmt(posted) + '</b></span>' + (G.failed ? '<span class="bad"><b>Close failed</b></span>' : '<span class="good">First time right <b>✓</b></span>')
+    const html = (G.failed ? '<span class="bad"><b>Close failed</b></span>' : '')
       + '<span class="' + (sm > 1 ? 'hot' : '') + '">Streak <b>' + G.streak + '</b></span><span>×<b>' + (mult() * sm).toFixed(1) + '</b></span>';
     const pbTxt = G.pb ? (G.pbHit ? 'New PB!' : 'PB ' + fmt(G.pb)) : '';
     if (hudCache.pb !== pbTxt){ hudCache.pb = pbTxt; $('h-pb').textContent = pbTxt; $('h-pb').classList.toggle('good', G.pbHit); }
@@ -804,7 +810,12 @@
     let best = null;
     for (let i = G.items.length - 1; i >= 0; i--) if (inside(G.items[i], 0)){ best = G.items[i]; break; }
     // benefit of the doubt: if a duplicate and a real entry overlap under your finger, you meant the real entry
-    if (best && best.k === 'D'){ const real = G.items.slice().reverse().find(it => it.k !== 'D' && inside(it, 0)); if (real) best = real; }
+    // and if a real entry is within a finger's width (12 px), you meant that one too: a duplicate is only posted when tapped clearly
+    if (best && best.k === 'D'){
+      let real = G.items.slice().reverse().find(it => it.k !== 'D' && inside(it, 0)), bd = Infinity;
+      if (!real) for (const it of G.items) if (it.k !== 'D' && inside(it, 12)){ const d = Math.hypot(px - it.x - CW / 2, py - it.y - CH / 2); if (d < bd){ bd = d; real = it; } }
+      if (real) best = real;
+    }
     if (!best){
       let bd = Infinity;
       for (const it of G.items) if (it.k !== 'D' && inside(it, 12)){ const d = Math.hypot(px - it.x - CW / 2, py - it.y - CH / 2); if (d < bd){ bd = d; best = it; } }
